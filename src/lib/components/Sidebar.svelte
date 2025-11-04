@@ -2,7 +2,7 @@
   import { page } from '$app/stores';
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, ChevronLeft, ChevronRight, Settings } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -33,11 +33,15 @@
   let logoHovered = $state(false);
   let hoveredMenuItem = $state<string | null>(null);
   let hoveredSettingsButton = $state(false);
+  let hoveredToggleButton = $state(false);
   let tooltipPosition = $state<{ x: number; y: number } | null>(null);
   let settingsTooltipPosition = $state<{ x: number; y: number } | null>(null);
+  let toggleTooltipPosition = $state<{ x: number; y: number } | null>(null);
 
   function toggleSidebar() {
     isCollapsed = !isCollapsed;
+    hoveredToggleButton = false;
+    toggleTooltipPosition = null;
     if (browser) {
       try {
         localStorage.setItem('sidebarCollapsed', String(isCollapsed));
@@ -63,7 +67,7 @@
 
 <aside class="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-all duration-300 {isCollapsed ? 'w-20' : 'w-64'} relative z-10">
   <!-- 标题区域 -->
-  <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 {isCollapsed ? 'px-0 py-2' : ''}">
+  <div class="px-6 py-3 border-b border-gray-200 dark:border-gray-700 {isCollapsed ? 'px-0 py-2' : ''} relative">
     {#if !isCollapsed}
       <div class="flex items-center gap-2">
         <img src="/icon.png" alt="Kairoa" class="w-12 h-12 object-contain flex-shrink-0" title="Kairoa" />
@@ -87,20 +91,44 @@
         {/if}
       </div>
     {/if}
-  </div>
-
-  <!-- 收起/展开按钮 -->
-  <button
-    onclick={toggleSidebar}
-    class="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors z-10"
-    aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-  >
-    {#if isCollapsed}
-      <ChevronRight class="w-4 h-4 text-gray-600 dark:text-gray-400" />
-    {:else}
-      <ChevronLeft class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+    
+    <!-- 收起/展开按钮 -->
+    <button
+      onclick={toggleSidebar}
+      class="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-transparent border border-white dark:border-gray-800 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors z-10"
+      aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      onmouseenter={(e) => {
+        hoveredToggleButton = true;
+        if (e.currentTarget) {
+          const rect = e.currentTarget.getBoundingClientRect();
+          toggleTooltipPosition = {
+            x: rect.right + 8,
+            y: rect.top + rect.height / 2
+          };
+        }
+      }}
+      onmouseleave={() => {
+        hoveredToggleButton = false;
+        toggleTooltipPosition = null;
+      }}
+    >
+      {#if isCollapsed}
+        <Maximize2 class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+      {:else}
+        <Minimize2 class="w-4 h-4 text-gray-600 dark:text-gray-400" />
+      {/if}
+    </button>
+    
+    <!-- 收起/展开按钮 Tooltip -->
+    {#if hoveredToggleButton && toggleTooltipPosition}
+      <div 
+        class="fixed px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded whitespace-nowrap z-[9999] pointer-events-none"
+        style="left: {toggleTooltipPosition.x}px; top: {toggleTooltipPosition.y}px; transform: translateY(-50%);"
+      >
+        {isCollapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+      </div>
     {/if}
-  </button>
+  </div>
 
   <!-- 工具列表区域 -->
   <div class="flex-1 overflow-y-auto px-4 py-4 {isCollapsed ? 'px-2' : ''}">

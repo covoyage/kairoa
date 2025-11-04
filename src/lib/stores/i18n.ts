@@ -79,6 +79,10 @@ const translations = {
       clear: 'Clear',
       close: 'Close'
     },
+    sidebar: {
+      expand: 'Expand sidebar',
+      collapse: 'Collapse sidebar'
+    },
     update: {
       check: 'Check for Updates',
       checking: 'Checking...',
@@ -331,6 +335,10 @@ const translations = {
       copied: '已复制!',
       clear: '清除',
       close: '关闭'
+    },
+    sidebar: {
+      expand: '展开侧边栏',
+      collapse: '收起侧边栏'
     },
     update: {
       check: '检查更新',
