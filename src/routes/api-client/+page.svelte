@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Send, Trash2, Plus, X } from 'lucide-svelte';
+  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, Code } from 'lucide-svelte';
   import { browser } from '$app/environment';
   
   // 动态导入 Tauri API（仅在浏览器环境中可用）
@@ -174,6 +174,12 @@
 
   let showBulkHeaderDialog = $state(false);
   let bulkHeaderText = $state('');
+  let showImportCurlDialog = $state(false);
+  let curlCommandText = $state('');
+  let showExportCurlDialog = $state(false);
+  let generatedCurlCommand = $state('');
+  let curlCopied = $state(false);
+  let showDropdown = $state(false);
 
   function parseBulkHeaders(text: string): Header[] {
     const headers: Header[] = [];
@@ -287,9 +293,15 @@
       
       if (tab.bodyType === 'json' && tab.bodyJson.trim()) {
         try {
-          JSON.parse(tab.bodyJson); // 验证 JSON
-          requestBody = tab.bodyJson;
-          requestHeaders['Content-Type'] = requestHeaders['Content-Type'] || 'application/json';
+          // 验证并压缩 JSON（去除多余空格，保持单行，除非已经是格式化的）
+          const parsed = JSON.parse(tab.bodyJson);
+          // 如果 JSON 已经是压缩格式（单行），保持原样；否则压缩
+          const isCompressed = !tab.bodyJson.includes('\n') && tab.bodyJson.trim() === tab.bodyJson;
+          requestBody = isCompressed ? tab.bodyJson : JSON.stringify(parsed);
+          // 只有在没有 Content-Type header 时才添加
+          if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+            requestHeaders['Content-Type'] = 'application/json';
+          }
         } catch (e) {
           tab.error = t('apiClient.invalidJson');
           tab.isSending = false;
@@ -297,10 +309,16 @@
         }
       } else if (tab.bodyType === 'text' && tab.bodyText.trim()) {
         requestBody = tab.bodyText;
-        requestHeaders['Content-Type'] = requestHeaders['Content-Type'] || 'text/plain';
+        // 只有在没有 Content-Type header 时才添加
+        if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+          requestHeaders['Content-Type'] = 'text/plain';
+        }
       } else if (tab.bodyType === 'xml' && tab.bodyXml.trim()) {
         requestBody = tab.bodyXml;
-        requestHeaders['Content-Type'] = requestHeaders['Content-Type'] || 'application/xml';
+        // 只有在没有 Content-Type header 时才添加
+        if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+          requestHeaders['Content-Type'] = 'application/xml';
+        }
       } else if (tab.bodyType === 'form-data') {
         // 检查是否有文件需要上传
         const hasFiles = tab.formData.some(item => item.enabled && item.type === 'file' && item.file);
@@ -545,6 +563,419 @@
     tab.name = 'New Request';
   }
 
+  // 解析 curl 命令
+  function parseCurlCommand(curlText: string): Partial<TabData> | null {
+    try {
+      // 先处理多行命令（移除反斜杠和换行符）
+      let curl = curlText.trim();
+      if (!curl.startsWith('curl')) {
+        return null;
+      }
+      
+      // 合并多行命令（移除行尾的反斜杠和换行符）
+      curl = curl.replace(/\\\s*\n\s*/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+
+      const result: Partial<TabData> = {
+        method: 'GET',
+        url: '',
+        headers: [],
+        bodyType: 'none' as BodyType,
+        bodyJson: '',
+        bodyText: '',
+        bodyXml: '',
+        formData: []
+      };
+
+      // 提取方法
+      const methodMatch = curl.match(/--request\s+(\w+)|-X\s+(\w+)/i);
+      if (methodMatch) {
+        const method = (methodMatch[1] || methodMatch[2]).toUpperCase();
+        if (['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'].includes(method)) {
+          result.method = method as HttpMethod;
+        }
+      } else {
+        // 如果没有明确指定方法，检查是否有 body 参数，如果有则默认为 POST
+        // 根据 curl 最佳实践，以下参数会自动将请求方法设置为 POST
+        const hasBodyParams = /(?:-d|--data|--data-raw|--data-binary|--data-urlencode|--form|-F)/i.test(curl);
+        if (hasBodyParams) {
+          result.method = 'POST';
+        }
+      }
+
+      // 提取 URL（支持单引号、双引号或无引号）
+      // 先尝试匹配带协议的 URL（在 curl 之后，所有选项之前）
+      // 查找第一个非选项参数（不在 - 或 -- 之后，且不是 -X/-H/-F 等选项的值）
+      const parts = curl.split(/\s+/);
+      let urlFound = false;
+      
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i].replace(/^['"]|['"]$/g, '');
+        
+        // 跳过选项
+        if (part.startsWith('-')) {
+          // 某些选项后面有值，需要跳过下一个参数
+          if (['-X', '--request', '-H', '--header', '-F', '--form', 
+               '--data', '--data-raw', '--data-urlencode', '--data-binary'].includes(part)) {
+            i++; // 跳过下一个参数（选项值）
+          }
+          continue;
+        }
+        
+        // 如果看起来像 URL（包含 :// 或者看起来像域名+路径）
+        if (part.includes('://') || (part.includes('.') && (part.includes('/') || part.includes('?')))) {
+          result.url = part;
+          urlFound = true;
+          break;
+        }
+      }
+      
+      // 如果没有找到 URL，尝试更宽松的匹配
+      if (!urlFound) {
+        const urlMatch = curl.match(/curl\s+(?:['"]?)(https?:\/\/[^\s'"]+)(?:['"]?)/i);
+        if (urlMatch && urlMatch[1]) {
+          result.url = urlMatch[1].replace(/^['"]|['"]$/g, '');
+        }
+      }
+
+      // 提取 headers
+      const headerRegex = /(?:-H|--header)\s+['"]([^'"]+)['"]/gi;
+      let headerMatch;
+      const headers: Header[] = [];
+      while ((headerMatch = headerRegex.exec(curl)) !== null) {
+        const headerStr = headerMatch[1];
+        const colonIndex = headerStr.indexOf(':');
+        if (colonIndex > 0) {
+          const key = headerStr.substring(0, colonIndex).trim();
+          const value = headerStr.substring(colonIndex + 1).trim();
+          if (key && value) {
+            headers.push({ key, value, enabled: true });
+          }
+        }
+      }
+      if (headers.length > 0) {
+        result.headers = headers;
+      }
+
+      // 提取 body
+      // 使用更精确的正则表达式匹配，支持单引号、双引号或无引号
+      const dataPatterns = [
+        { pattern: /--data-raw\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'raw' },
+        { pattern: /--data-urlencode\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'urlencode' },
+        { pattern: /--data-binary\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'binary' },
+        { pattern: /--data\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'data' }
+      ];
+      
+      let bodyContent = '';
+      let bodyType = '';
+      
+      for (const { pattern, type } of dataPatterns) {
+        const matches = [...curl.matchAll(pattern)];
+        if (matches.length > 0) {
+          bodyType = type;
+          matches.forEach(match => {
+            if (match[1]) {
+              let content = match[1].trim();
+              // 移除引号
+              if ((content.startsWith('"') && content.endsWith('"')) || 
+                  (content.startsWith("'") && content.endsWith("'"))) {
+                content = content.slice(1, -1);
+              }
+              // 处理转义
+              content = content.replace(/\\'/g, "'").replace(/\\"/g, '"');
+              bodyContent += content;
+            }
+          });
+          break; // 只处理第一个匹配的类型
+        }
+      }
+      
+      if (bodyContent.trim()) {
+        if (bodyType === 'urlencode') {
+          // --data-urlencode 通常用于 URL encoded 数据
+          // 检查是否是 key=value 格式
+          if (bodyContent.includes('=') && !bodyContent.includes('{')) {
+            result.bodyType = 'url-encoded';
+            const pairs = bodyContent.split('&');
+            const formData: FormDataItem[] = [];
+            pairs.forEach(pair => {
+              const equalIndex = pair.indexOf('=');
+              if (equalIndex > 0) {
+                try {
+                  const key = decodeURIComponent(pair.substring(0, equalIndex));
+                  const value = decodeURIComponent(pair.substring(equalIndex + 1));
+                  formData.push({ key, value, enabled: true, type: 'text', file: null });
+                } catch {
+                  // 如果解码失败，使用原始值
+                  const key = pair.substring(0, equalIndex);
+                  const value = pair.substring(equalIndex + 1);
+                  formData.push({ key, value, enabled: true, type: 'text', file: null });
+                }
+              }
+            });
+            result.formData = formData;
+          } else {
+            // 否则作为普通文本处理
+            try {
+              result.bodyType = 'text';
+              result.bodyText = decodeURIComponent(bodyContent);
+            } catch {
+              result.bodyType = 'text';
+              result.bodyText = bodyContent;
+            }
+          }
+        } else {
+          // 尝试解析为 JSON
+          try {
+            const json = JSON.parse(bodyContent);
+            result.bodyType = 'json';
+            result.bodyJson = JSON.stringify(json, null, 2);
+          } catch {
+            // 检查是否是 XML
+            if (bodyContent.trim().startsWith('<')) {
+              result.bodyType = 'xml';
+              result.bodyXml = bodyContent;
+            } else {
+              result.bodyType = 'text';
+              result.bodyText = bodyContent;
+            }
+          }
+        }
+      }
+
+      // 提取 form-data
+      const formRegex = /(?:-F|--form)\s+([^\s]+|'[^']*'|"[^"]*")/gi;
+      let formMatch;
+      const formData: FormDataItem[] = [];
+      
+      while ((formMatch = formRegex.exec(curl)) !== null) {
+        let formValue = formMatch[1];
+        // 移除引号
+        if ((formValue.startsWith('"') && formValue.endsWith('"')) || 
+            (formValue.startsWith("'") && formValue.endsWith("'"))) {
+          formValue = formValue.slice(1, -1);
+        }
+        
+        if (formValue.includes('=')) {
+          const equalIndex = formValue.indexOf('=');
+          const key = formValue.substring(0, equalIndex).trim();
+          let value = formValue.substring(equalIndex + 1).trim();
+          
+          if (key && value) {
+            // 检查是否是文件
+            if (value.startsWith('@')) {
+              formData.push({
+                key,
+                value: value.substring(1),
+                enabled: true,
+                type: 'file',
+                file: null
+              });
+            } else {
+              formData.push({
+                key,
+                value,
+                enabled: true,
+                type: 'text',
+                file: null
+              });
+            }
+          }
+        }
+      }
+      
+      if (formData.length > 0) {
+        result.bodyType = 'form-data';
+        result.formData = formData;
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Failed to parse curl command:', error);
+      return null;
+    }
+  }
+
+  // 导入 curl 命令
+  function importCurlCommand() {
+    const parsed = parseCurlCommand(curlCommandText);
+    if (!parsed) {
+      activeTab.error = t('apiClient.invalidCurlCommand');
+      showImportCurlDialog = false;
+      curlCommandText = '';
+      return;
+    }
+
+    // 应用解析结果
+    if (parsed.method) activeTab.method = parsed.method;
+    if (parsed.url) activeTab.url = parsed.url;
+    if (parsed.headers && parsed.headers.length > 0) {
+      activeTab.headers = parsed.headers;
+    }
+    if (parsed.bodyType) {
+      activeTab.bodyType = parsed.bodyType;
+      if (parsed.bodyJson) activeTab.bodyJson = parsed.bodyJson;
+      if (parsed.bodyText) activeTab.bodyText = parsed.bodyText;
+      if (parsed.bodyXml) activeTab.bodyXml = parsed.bodyXml;
+    }
+    if (parsed.formData && parsed.formData.length > 0) {
+      activeTab.formData = parsed.formData;
+    }
+
+    showImportCurlDialog = false;
+    curlCommandText = '';
+    updateTabName(activeTab);
+  }
+
+  // 转义 shell 字符串中的特殊字符
+  function escapeShellString(str: string, useDoubleQuotes: boolean = false): string {
+    if (useDoubleQuotes) {
+      // 双引号中需要转义：$ ` " \
+      return str.replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\$/g, '\\$')
+                .replace(/`/g, '\\`');
+    } else {
+      // 单引号中需要转义：单引号本身（通过结束引号、转义、开始引号的方式）
+      return str.replace(/'/g, "'\\''");
+    }
+  }
+
+  // 生成 curl 命令（美化格式）
+  function generateCurlCommand(tab: TabData): string {
+    const parts: string[] = [];
+    
+    // 基础命令、方法和 URL 放在同一行
+    let firstLine = 'curl';
+    
+    // 添加方法
+    if (tab.method !== 'GET') {
+      firstLine += ` -X ${tab.method}`;
+    }
+
+    // 添加 URL（使用双引号，因为 URL 可能包含特殊字符）
+    if (tab.url) {
+      const escapedUrl = escapeShellString(tab.url, true);
+      firstLine += ` "${escapedUrl}"`;
+    }
+
+    // 检查是否有 headers 或 body
+    const enabledHeaders = tab.headers.filter(header => 
+      header.enabled && header.key.trim() && header.value.trim()
+    );
+    
+    const hasBody = tab.bodyType !== 'none' && (
+      (tab.bodyType === 'json' && tab.bodyJson.trim()) ||
+      (tab.bodyType === 'text' && tab.bodyText.trim()) ||
+      (tab.bodyType === 'xml' && tab.bodyXml.trim()) ||
+      (tab.bodyType === 'form-data' && tab.formData.some(item => item.enabled && item.key.trim())) ||
+      (tab.bodyType === 'url-encoded' && tab.formData.some(item => item.enabled && item.key.trim() && item.value.trim()))
+    );
+    
+    const hasMoreParams = enabledHeaders.length > 0 || hasBody;
+    
+    // 如果有后续参数，第一行末尾添加反斜杠
+    if (hasMoreParams) {
+      firstLine += ' \\';
+    }
+    
+    parts.push(firstLine);
+
+    // 添加 headers
+    enabledHeaders.forEach((header, index) => {
+      const isLast = index === enabledHeaders.length - 1;
+      const hasMore = !isLast || hasBody;
+      
+      // Header 值中可能包含特殊字符，需要转义
+      const escapedKey = escapeShellString(header.key.trim(), true);
+      const escapedValue = escapeShellString(header.value.trim(), true);
+      parts.push(`  -H "${escapedKey}: ${escapedValue}"${hasMore ? ' \\' : ''}`);
+    });
+
+    // 添加 body
+    if (tab.bodyType === 'json' && tab.bodyJson.trim()) {
+      // JSON 使用单引号包裹，但需要压缩为单行以避免多行问题
+      let jsonBody = tab.bodyJson.trim();
+      try {
+        const parsed = JSON.parse(jsonBody);
+        // 压缩为单行，避免多行 JSON 在 shell 中的问题
+        jsonBody = JSON.stringify(parsed);
+      } catch {
+        // 如果解析失败，保持原样
+      }
+      
+      // 转义单引号（通过结束引号、转义、开始引号的方式）
+      const escapedJson = escapeShellString(jsonBody, false);
+      parts.push(`  --data-raw '${escapedJson}'`);
+      
+    } else if (tab.bodyType === 'text' && tab.bodyText.trim()) {
+      const textBody = tab.bodyText.trim();
+      // 对于多行文本，使用单引号，并转义单引号
+      const escapedText = escapeShellString(textBody, false);
+      parts.push(`  --data-raw '${escapedText}'`);
+      
+    } else if (tab.bodyType === 'xml' && tab.bodyXml.trim()) {
+      const xmlBody = tab.bodyXml.trim();
+      // 对于多行 XML，使用单引号，并转义单引号
+      const escapedXml = escapeShellString(xmlBody, false);
+      parts.push(`  --data-raw '${escapedXml}'`);
+      
+    } else if (tab.bodyType === 'form-data') {
+      const enabledFormData = tab.formData.filter(item => 
+        item.enabled && item.key.trim() && (
+          (item.type === 'text' && item.value.trim()) ||
+          (item.type === 'file' && item.file)
+        )
+      );
+      
+      enabledFormData.forEach((item, index) => {
+        const isLast = index === enabledFormData.length - 1;
+        if (item.type === 'file' && item.file) {
+          // 文件名可能需要转义
+          const escapedKey = escapeShellString(item.key.trim(), true);
+          const escapedFileName = escapeShellString(item.file.name, true);
+          parts.push(`  -F "${escapedKey}=@${escapedFileName}"${isLast ? '' : ' \\'}`);
+        } else if (item.type === 'text' && item.value.trim()) {
+          // Form data 值需要转义
+          const escapedKey = escapeShellString(item.key.trim(), true);
+          const escapedValue = escapeShellString(item.value.trim(), true);
+          parts.push(`  -F "${escapedKey}=${escapedValue}"${isLast ? '' : ' \\'}`);
+        }
+      });
+    } else if (tab.bodyType === 'url-encoded') {
+      const pairs: string[] = [];
+      tab.formData.forEach(item => {
+        if (item.enabled && item.key.trim() && item.value.trim()) {
+          pairs.push(`${encodeURIComponent(item.key.trim())}=${encodeURIComponent(item.value.trim())}`);
+        }
+      });
+      if (pairs.length > 0) {
+        // URL encoded 数据已经编码过了，直接用双引号包裹
+        parts.push(`  --data-urlencode "${pairs.join('&')}"`);
+      }
+    }
+
+    return parts.join('\n');
+  }
+
+  // 导出 curl 命令
+  function exportCurlCommand(tab: TabData) {
+    generatedCurlCommand = generateCurlCommand(tab);
+    showExportCurlDialog = true;
+  }
+
+  // 复制 curl 命令
+  async function copyCurlCommand() {
+    try {
+      await navigator.clipboard.writeText(generatedCurlCommand);
+      curlCopied = true;
+      setTimeout(() => {
+        curlCopied = false;
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy curl command:', error);
+    }
+  }
+
   function getStatusColor(status: number | null): string {
     if (!status) return '';
     if (status >= 200 && status < 300) return 'text-green-600 dark:text-green-400';
@@ -618,6 +1049,41 @@
       updateTabName(activeTab);
     }
   });
+
+  // 点击外部关闭下拉菜单和计算位置
+  let dropdownRef: HTMLElement | null = $state(null);
+  let dropdownButtonRef: HTMLElement | null = $state(null);
+  
+  if (browser) {
+    $effect(() => {
+      if (showDropdown && dropdownRef && dropdownButtonRef) {
+        // 计算下拉菜单的位置
+        const updatePosition = () => {
+          const buttonRect = dropdownButtonRef!.getBoundingClientRect();
+          dropdownRef!.style.top = `${buttonRect.bottom + 4}px`;
+          dropdownRef!.style.right = `${window.innerWidth - buttonRect.right}px`;
+        };
+        
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        
+        const handleClickOutside = (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (!target.closest('.relative') && !target.closest('[data-dropdown]')) {
+            showDropdown = false;
+          }
+        };
+        document.addEventListener('click', handleClickOutside);
+        
+        return () => {
+          window.removeEventListener('resize', updatePosition);
+          window.removeEventListener('scroll', updatePosition, true);
+          document.removeEventListener('click', handleClickOutside);
+        };
+      }
+    });
+  }
 </script>
 
 <div class="w-full ml-0 mr-0 p-2 space-y-6">
@@ -657,7 +1123,7 @@
   <div class="card">
     <div class="space-y-4">
       <!-- 方法和 URL -->
-      <div class="flex gap-2 items-start">
+      <div class="flex gap-2 items-start overflow-visible">
         <select
           bind:value={activeTab.method}
           class="input w-32"
@@ -676,26 +1142,68 @@
           placeholder={t('apiClient.urlPlaceholder')}
           class="input flex-1"
         />
-        <button
-          onclick={() => sendRequest(activeTab)}
-          disabled={activeTab.isSending || !activeTab.url.trim()}
-          class="px-4 py-2 text-white rounded-lg transition-colors font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          style="background-color: #818089;"
-        >
-          <Send class="w-4 h-4" />
-          {#if activeTab.isSending}
-            {t('apiClient.sending')}
-          {:else}
-            {t('apiClient.send')}
-          {/if}
-        </button>
-        <button
-          onclick={() => clear(activeTab)}
-          disabled={activeTab.isSending}
-          class="btn-secondary"
-        >
-          {t('apiClient.clear')}
-        </button>
+        <div class="flex items-center">
+          <button
+            onclick={() => sendRequest(activeTab)}
+            disabled={activeTab.isSending || !activeTab.url.trim()}
+            class="h-10 px-4 text-white transition-colors font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 rounded-l-lg"
+            style="background-color: #818089;"
+          >
+            <Send class="w-4 h-4" />
+            {#if activeTab.isSending}
+              {t('apiClient.sending')}
+            {:else}
+              {t('apiClient.send')}
+            {/if}
+          </button>
+          <div class="relative">
+            <button
+              bind:this={dropdownButtonRef}
+              onclick={() => showDropdown = !showDropdown}
+              disabled={activeTab.isSending}
+              class="h-10 px-3 text-white transition-colors font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center rounded-r-lg border-l border-white/20"
+              style="background-color: #818089;"
+            >
+              <ChevronDown class="w-4 h-4" />
+            </button>
+            {#if showDropdown}
+              <div 
+                bind:this={dropdownRef}
+                data-dropdown
+                class="fixed bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[200px] z-[9999]"
+                onclick={(e) => e.stopPropagation()}
+              >
+                <!-- 三角形指示器 -->
+                <div class="absolute -top-1 right-4 w-2 h-2 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 transform rotate-45"></div>
+                <button
+                  onclick={() => { curlCommandText = ''; showImportCurlDialog = true; showDropdown = false; }}
+                  disabled={activeTab.isSending}
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Upload class="w-4 h-4" />
+                  <span>{t('apiClient.importCurl')}</span>
+                </button>
+                <button
+                  onclick={() => { exportCurlCommand(activeTab); showDropdown = false; }}
+                  disabled={activeTab.isSending || !activeTab.url.trim()}
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Code class="w-4 h-4" />
+                  <span>{t('apiClient.showCode')}</span>
+                </button>
+                <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                <button
+                  onclick={() => { clear(activeTab); showDropdown = false; }}
+                  disabled={activeTab.isSending}
+                  class="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Trash2 class="w-4 h-4" />
+                  <span>{t('apiClient.clearAll')}</span>
+                </button>
+              </div>
+            {/if}
+          </div>
+        </div>
       </div>
 
       <!-- Headers -->
@@ -1035,6 +1543,102 @@
               </div>
             {/if}
           </div>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- 导入 curl 对话框 -->
+  {#if showImportCurlDialog}
+    <div 
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onclick={() => { showImportCurlDialog = false; curlCommandText = ''; }}
+      onkeydown={(e) => { if (e.key === 'Escape') { showImportCurlDialog = false; curlCommandText = ''; } }}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div 
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4"
+        onclick={(e) => e.stopPropagation()}
+        role="none"
+      >
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          {t('apiClient.importCurl')}
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('apiClient.importCurlHint')}
+        </p>
+        <textarea
+          bind:value={curlCommandText}
+          placeholder={t('apiClient.importCurlPlaceholder')}
+          class="textarea font-mono text-sm min-h-[200px] mb-4"
+        ></textarea>
+        <div class="flex gap-2 justify-end">
+          <button
+            onclick={() => { showImportCurlDialog = false; curlCommandText = ''; }}
+            class="btn-secondary"
+          >
+            {t('apiClient.cancel')}
+          </button>
+          <button
+            onclick={() => importCurlCommand()}
+            class="px-4 py-2 text-white rounded-lg transition-colors font-medium hover:opacity-90"
+            style="background-color: #818089;"
+          >
+            {t('apiClient.import')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- 导出 curl 对话框 -->
+  {#if showExportCurlDialog}
+    <div 
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onclick={() => { showExportCurlDialog = false; generatedCurlCommand = ''; }}
+      onkeydown={(e) => { if (e.key === 'Escape') { showExportCurlDialog = false; generatedCurlCommand = ''; } }}
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div 
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-3xl mx-4"
+        onclick={(e) => e.stopPropagation()}
+        role="none"
+      >
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          {t('apiClient.exportCurl')}
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {t('apiClient.exportCurlHint')}
+        </p>
+        <textarea
+          value={generatedCurlCommand}
+          readonly
+          class="textarea font-mono text-sm min-h-[200px] mb-4"
+        ></textarea>
+        <div class="flex gap-2 justify-end">
+          <button
+            onclick={() => { showExportCurlDialog = false; generatedCurlCommand = ''; }}
+            class="btn-secondary"
+          >
+            {t('apiClient.close')}
+          </button>
+          <button
+            onclick={() => copyCurlCommand()}
+            class="px-4 py-2 text-white rounded-lg transition-colors font-medium hover:opacity-90 flex items-center gap-2 {curlCopied ? 'bg-green-500 hover:bg-green-600' : ''}"
+            style={curlCopied ? '' : 'background-color: #818089;'}
+          >
+            {#if curlCopied}
+              <Check class="w-4 h-4" />
+              {t('common.copied')}
+            {:else}
+              <Copy class="w-4 h-4" />
+              {t('common.copy')}
+            {/if}
+          </button>
         </div>
       </div>
     </div>

@@ -258,7 +258,17 @@ const translations = {
       responseHeaders: 'Response Headers',
       responseBody: 'Response Body',
       noHeaders: 'No headers',
-      noResponseBody: 'No response body'
+      noResponseBody: 'No response body',
+      importCurl: 'Import cURL',
+      exportCurl: 'Export cURL',
+      importCurlHint: 'Paste your cURL command below and click Import to load the request configuration.',
+      importCurlPlaceholder: 'curl -X POST "https://api.example.com/endpoint" -H "Content-Type: application/json" -d \'{"key":"value"}\'',
+      exportCurlHint: 'Copy the generated cURL command below.',
+      invalidCurlCommand: 'Invalid cURL command format',
+      import: 'Import',
+      close: 'Close',
+      showCode: 'Show code',
+      clearAll: 'Clear all'
     }
   },
   zh: {
@@ -515,7 +525,17 @@ const translations = {
       responseHeaders: '响应头',
       responseBody: '响应体',
       noHeaders: '无响应头',
-      noResponseBody: '无响应体'
+      noResponseBody: '无响应体',
+      importCurl: '导入 cURL',
+      exportCurl: '导出 cURL',
+      importCurlHint: '在下方粘贴您的 cURL 命令，点击导入以加载请求配置。',
+      importCurlPlaceholder: 'curl -X POST "https://api.example.com/endpoint" -H "Content-Type: application/json" -d \'{"key":"value"}\'',
+      exportCurlHint: '复制下方生成的 cURL 命令。',
+      invalidCurlCommand: 'cURL 命令格式无效',
+      import: '导入',
+      close: '关闭',
+      showCode: '显示代码',
+      clearAll: '清除全部'
     }
   }
 };
