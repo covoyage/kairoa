@@ -20,6 +20,7 @@
     "@types/crypto-js": "^4.2.2",
     "crypto-js": "^4.2.0",
     "lucide-svelte": "^0.552.0",
+    "marked": "^16.4.1",
     "svelte-i18n": "^4.0.1"
   },
   "devDependencies": {

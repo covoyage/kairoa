@@ -1,6 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   import { Copy, Check, Trash2, FileImage, FileText } from 'lucide-svelte';
+  import { marked, type RendererObject } from 'marked';
 
   let activeView = $state<'svg' | 'markdown'>('svg');
   let svgContent = $state('');
@@ -63,119 +64,32 @@
     }
   }
 
-  // 渲染 Markdown（简单版本，可以使用 marked 库增强）
+  // 配置 marked 选项并自定义渲染器
+  const customRenderer: Partial<RendererObject> = {
+    link(href: string, title: string | null | undefined, text: string) {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer"${title ? ` title="${title}"` : ''}>${text}</a>`;
+    },
+    image(href: string, title: string | null | undefined, text: string) {
+      return `<img src="${href}" alt="${text}" class="max-w-full rounded"${title ? ` title="${title}"` : ''}>`;
+    },
+  };
+
+  marked.use({
+    breaks: true, // 支持换行符（单个换行符转换为 <br>）
+    gfm: true, // 启用 GitHub Flavored Markdown
+    renderer: customRenderer,
+  });
+
+  // 渲染 Markdown
   function renderMarkdown(content: string): string {
     if (!content.trim()) return '';
     
-    let html = content;
-    
-    // 先处理代码块（避免代码块内的内容被其他规则处理）
-    const codeBlocks: string[] = [];
-    html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
-      const index = codeBlocks.length;
-      codeBlocks.push(`<pre><code>${escapeHtml(code.trim())}</code></pre>`);
-      return `__CODE_BLOCK_${index}__`;
-    });
-    
-    // 处理行内代码
-    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
-    // 处理标题（按顺序，从最深层到最浅层）
-    html = html.replace(/^###### (.*$)/gim, '<h6>$1</h6>');
-    html = html.replace(/^##### (.*$)/gim, '<h5>$1</h5>');
-    html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-    html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-    
-    // 处理水平线
-    html = html.replace(/^---$/gim, '<hr>');
-    html = html.replace(/^\*\*\*$/gim, '<hr>');
-    
-    // 处理粗体（在斜体之前，避免冲突）
-    html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
-    
-    // 处理斜体（避免与粗体重叠）
-    html = html.replace(/(?<!\*)\*(?!\*)([^*]+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
-    html = html.replace(/(?<!_)_(?!_)([^_]+?)(?<!_)_(?!_)/g, '<em>$1</em>');
-    
-    // 处理链接
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    
-    // 处理图片
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" class="max-w-full rounded">');
-    
-    // 处理有序列表
-    const lines = html.split('\n');
-    let inOrderedList = false;
-    let orderedListHtml: string[] = [];
-    let result: string[] = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const orderedMatch = line.match(/^(\d+)\. (.+)$/);
-      
-      if (orderedMatch) {
-        if (!inOrderedList) {
-          inOrderedList = true;
-          orderedListHtml = [];
-        }
-        orderedListHtml.push(`<li>${orderedMatch[2]}</li>`);
-      } else {
-        if (inOrderedList) {
-          result.push(`<ol>${orderedListHtml.join('')}</ol>`);
-          orderedListHtml = [];
-          inOrderedList = false;
-        }
-        result.push(line);
-      }
+    try {
+      return marked.parse(content) as string;
+    } catch (error) {
+      console.error('Markdown parsing error:', error);
+      return `<p class="text-red-600 dark:text-red-400">Error parsing Markdown: ${error}</p>`;
     }
-    
-    if (inOrderedList) {
-      result.push(`<ol>${orderedListHtml.join('')}</ol>`);
-    }
-    
-    html = result.join('\n');
-    
-    // 处理无序列表
-    html = html.replace(/^(\*|-|\+) (.+)$/gim, '<li>$2</li>');
-    
-    // 包装连续的无序列表项
-    html = html.replace(/(<li>.*<\/li>(?:\s*<li>.*<\/li>)*)/g, '<ul>$1</ul>');
-    
-    // 处理段落（将连续的非空行包装为段落）
-    html = html.split('\n').map(line => {
-      if (line.trim() && !line.match(/^<(h[1-6]|ul|ol|li|pre|hr|img)/)) {
-        return `<p>${line}</p>`;
-      }
-      return line;
-    }).join('\n');
-    
-    // 恢复代码块
-    codeBlocks.forEach((block, index) => {
-      html = html.replace(`__CODE_BLOCK_${index}__`, block);
-    });
-    
-    // 清理多余的换行
-    html = html.replace(/\n{3,}/g, '\n\n');
-    
-    return html;
-  }
-
-  function escapeHtml(text: string): string {
-    if (typeof document === 'undefined') {
-      // 服务端渲染：使用简单的转义
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
   }
 </script>
 
