@@ -39,16 +39,20 @@ const translations = {
       algorithms: {
         md5: 'MD5',
         sha1: 'SHA-1',
+        sha224: 'SHA-224',
         sha256: 'SHA-256',
         sha384: 'SHA-384',
-        sha512: 'SHA-512'
+        sha512: 'SHA-512',
+        ripemd160: 'RIPEMD-160'
       },
       algorithmDescriptions: {
         md5: '128-bit hash',
         sha1: '160-bit hash',
+        sha224: '224-bit hash',
         sha256: '256-bit hash',
         sha384: '384-bit hash',
-        sha512: '512-bit hash'
+        sha512: '512-bit hash',
+        ripemd160: '160-bit hash'
       },
       result: 'Result'
     },
@@ -349,16 +353,20 @@ const translations = {
       algorithms: {
         md5: 'MD5',
         sha1: 'SHA-1',
+        sha224: 'SHA-224',
         sha256: 'SHA-256',
         sha384: 'SHA-384',
-        sha512: 'SHA-512'
+        sha512: 'SHA-512',
+        ripemd160: 'RIPEMD-160'
       },
       algorithmDescriptions: {
         md5: '128-bit hash',
         sha1: '160-bit hash',
+        sha224: '224-bit hash',
         sha256: '256-bit hash',
         sha384: '384-bit hash',
-        sha512: '512-bit hash'
+        sha512: '512-bit hash',
+        ripemd160: '160-bit hash'
       },
       result: '结果'
     },

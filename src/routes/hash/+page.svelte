@@ -3,7 +3,7 @@
   import CryptoJS from 'crypto-js';
   import { onDestroy } from 'svelte';
   
-  type Algorithm = 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512';
+  type Algorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 'sha512' | 'ripemd160';
   type InputType = 'text' | 'file';
   
   let input = $state('');
@@ -13,17 +13,21 @@
   let results = $state<Record<Algorithm, string>>({
     md5: '',
     sha1: '',
+    sha224: '',
     sha256: '',
     sha384: '',
-    sha512: ''
+    sha512: '',
+    ripemd160: ''
   });
   let copiedAlgorithms = $state<Set<Algorithm>>(new Set());
   let textareaRefs = $state<Record<Algorithm, HTMLTextAreaElement | null>>({
     md5: null,
     sha1: null,
+    sha224: null,
     sha256: null,
     sha384: null,
-    sha512: null
+    sha512: null,
+    ripemd160: null
   });
 
   let translations = $derived($translationsStore);
@@ -48,9 +52,11 @@
       results = {
         md5: '',
         sha1: '',
+        sha224: '',
         sha256: '',
         sha384: '',
-        sha512: ''
+        sha512: '',
+        ripemd160: ''
       };
       return;
     }
@@ -59,18 +65,22 @@
       results = {
         md5: CryptoJS.MD5(input).toString(),
         sha1: CryptoJS.SHA1(input).toString(),
+        sha224: CryptoJS.SHA224(input).toString(),
         sha256: CryptoJS.SHA256(input).toString(),
         sha384: CryptoJS.SHA384(input).toString(),
-        sha512: CryptoJS.SHA512(input).toString()
+        sha512: CryptoJS.SHA512(input).toString(),
+        ripemd160: CryptoJS.RIPEMD160(input).toString()
       };
     } catch (error) {
       const errorMsg = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
       results = {
         md5: errorMsg,
         sha1: errorMsg,
+        sha224: errorMsg,
         sha256: errorMsg,
         sha384: errorMsg,
-        sha512: errorMsg
+        sha512: errorMsg,
+        ripemd160: errorMsg
       };
     }
   }
@@ -83,9 +93,11 @@
       results = {
         md5: errorMsg,
         sha1: errorMsg,
+        sha224: errorMsg,
         sha256: errorMsg,
         sha384: errorMsg,
-        sha512: errorMsg
+        sha512: errorMsg,
+        ripemd160: errorMsg
       };
       isCalculating = false;
       return;
@@ -95,9 +107,11 @@
     results = {
       md5: '',
       sha1: '',
+      sha224: '',
       sha256: '',
       sha384: '',
-      sha512: ''
+      sha512: '',
+      ripemd160: ''
     };
 
     try {
@@ -107,18 +121,22 @@
       results = {
         md5: CryptoJS.MD5(wordArray).toString(),
         sha1: CryptoJS.SHA1(wordArray).toString(),
+        sha224: CryptoJS.SHA224(wordArray).toString(),
         sha256: CryptoJS.SHA256(wordArray).toString(),
         sha384: CryptoJS.SHA384(wordArray).toString(),
-        sha512: CryptoJS.SHA512(wordArray).toString()
+        sha512: CryptoJS.SHA512(wordArray).toString(),
+        ripemd160: CryptoJS.RIPEMD160(wordArray).toString()
       };
     } catch (error) {
       const errorMsg = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
       results = {
         md5: errorMsg,
         sha1: errorMsg,
+        sha224: errorMsg,
         sha256: errorMsg,
         sha384: errorMsg,
-        sha512: errorMsg
+        sha512: errorMsg,
+        ripemd160: errorMsg
       };
     } finally {
       isCalculating = false;
@@ -143,9 +161,11 @@
         results = {
           md5: '',
           sha1: '',
+          sha224: '',
           sha256: '',
           sha384: '',
-          sha512: ''
+          sha512: '',
+          ripemd160: ''
         };
       }
       selectedFile = file;
@@ -163,9 +183,11 @@
         results = {
           md5: '',
           sha1: '',
+          sha224: '',
           sha256: '',
           sha384: '',
-          sha512: ''
+          sha512: '',
+          ripemd160: ''
         };
       }
       selectedFile = file;
@@ -198,9 +220,11 @@
     results = {
       md5: '',
       sha1: '',
+      sha224: '',
       sha256: '',
       sha384: '',
-      sha512: ''
+      sha512: '',
+      ripemd160: ''
     };
   }
 
@@ -234,9 +258,11 @@
     results = {
       md5: '',
       sha1: '',
+      sha224: '',
       sha256: '',
       sha384: '',
-      sha512: ''
+      sha512: '',
+      ripemd160: ''
     };
   }
 
@@ -247,13 +273,15 @@
     results = {
       md5: '',
       sha1: '',
+      sha224: '',
       sha256: '',
       sha384: '',
-      sha512: ''
+      sha512: '',
+      ripemd160: ''
     };
   });
 
-  const algorithms: Algorithm[] = ['md5', 'sha1', 'sha256', 'sha384', 'sha512'];
+  const algorithms: Algorithm[] = ['md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512', 'ripemd160'];
 
   // 当 hash 值变化时，自动调整 textarea 高度
   $effect(() => {
