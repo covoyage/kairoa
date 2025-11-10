@@ -22,7 +22,7 @@
 
 <header class="h-16 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-between px-6">
   <div class="flex items-center gap-4">
-    <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100">{t('app.title')}</h1>
+    <h1 class="text-xl font-bold text-gray-900 dark:text-gray-100 {currentLocale === 'zh' ? 'app-title-zh' : ''}">{t('app.title')}</h1>
     <span class="text-sm text-gray-500 dark:text-gray-400">{t('app.subtitle')}</span>
   </div>
   

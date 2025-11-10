@@ -98,6 +98,12 @@ const translations = {
       currentVersion: 'Current Version',
       latestVersion: 'Latest Version',
       download: 'Download',
+      downloading: 'Downloading...',
+      downloadProgress: 'Download Progress',
+      downloadComplete: 'Download Complete',
+      restartToUpdate: 'Restart to Update',
+      restartConfirm: 'The update has been downloaded. Do you want to restart the application now?',
+      restartLater: 'Restart Later',
       error: 'Failed to check for updates',
       releaseNotes: 'Release Notes'
     },
@@ -325,7 +331,7 @@ const translations = {
   },
   zh: {
     app: {
-      title: 'Kairoa',
+      title: '清漪',
       subtitle: '桌面工具集'
     },
     nav: {
@@ -417,6 +423,12 @@ const translations = {
       currentVersion: '当前版本',
       latestVersion: '最新版本',
       download: '下载',
+      downloading: '正在下载...',
+      downloadProgress: '下载进度',
+      downloadComplete: '下载完成',
+      restartToUpdate: '重启以更新',
+      restartConfirm: '更新已下载完成。是否立即重启应用程序？',
+      restartLater: '稍后重启',
       error: '检查更新失败',
       releaseNotes: '更新说明'
     },

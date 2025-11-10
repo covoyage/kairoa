@@ -126,5 +126,23 @@
   .markdown-content em {
     @apply italic;
   }
+
+  /* 中文名称"清漪"的舒展、飘逸样式 */
+  .app-title-zh {
+    letter-spacing: 0.12em;
+    font-weight: 400;
+    position: relative;
+    /* 使用优雅的中文字体：优先使用现代、美观的字体 */
+    font-family: 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'WenQuanYi Micro Hei', 'Source Han Sans SC', sans-serif;
+    display: inline-block;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+    /* 颜色与 logo 保持一致，使用标准文本颜色 */
+    color: inherit;
+  }
+
+  .app-title-zh:hover {
+    letter-spacing: 0.15em;
+  }
 }
 

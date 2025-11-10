@@ -3,7 +3,7 @@
   import { theme } from '$lib/stores/theme';
   import { get } from 'svelte/store';
   import { browser } from '$app/environment';
-  import { Sun, Moon, Globe, Download } from 'lucide-svelte';
+  import { Sun, Moon, Globe, Download, RefreshCw } from 'lucide-svelte';
   import LanguageIcon from '$lib/components/LanguageIcon.svelte';
 
   let translations = $derived($translationsStore);
@@ -13,6 +13,10 @@
   let showLocaleMenu = $state(false);
   let showUpdateDialog = $state(false);
   let checkingUpdate = $state(false);
+  let downloadingUpdate = $state(false);
+  let downloadProgress = $state(0);
+  let downloadComplete = $state(false);
+  let showRestartDialog = $state(false);
   let updateInfo = $state<{
     available: boolean;
     currentVersion: string;
@@ -21,6 +25,7 @@
     releaseName: string;
     releaseBody: string;
   } | null>(null);
+  let updateInstance: any = null;
 
   function t(key: string): string {
     const keys = key.split('.');
@@ -100,16 +105,65 @@
   async function installUpdate() {
     try {
       const { check } = await import('@tauri-apps/plugin-updater');
-      const { relaunch } = await import('@tauri-apps/plugin-process');
       
       const update = await check();
       if (update) {
-        await update.downloadAndInstall();
-        await relaunch();
+        updateInstance = update;
+        downloadingUpdate = true;
+        downloadProgress = 0;
+        downloadComplete = false;
+        showUpdateDialog = false;
+        
+        let totalBytes = 0;
+        let downloadedBytes = 0;
+        
+        // 下载更新，监听进度事件
+        await update.download((event) => {
+          if (event.event === 'Started') {
+            // 下载开始
+            totalBytes = event.data.contentLength || 0;
+            downloadedBytes = 0;
+            downloadProgress = 0;
+          } else if (event.event === 'Progress') {
+            // 下载进度更新
+            downloadedBytes += event.data.chunkLength;
+            if (totalBytes > 0) {
+              downloadProgress = Math.min(Math.round((downloadedBytes / totalBytes) * 100), 100);
+            } else {
+              // 如果不知道总大小，使用简单的进度估算
+              downloadProgress = Math.min(downloadProgress + 1, 95);
+            }
+          } else if (event.event === 'Finished') {
+            // 下载完成
+            downloadProgress = 100;
+          }
+        });
+        
+        // 安装更新
+        await update.install();
+        
+        downloadingUpdate = false;
+        downloadComplete = true;
+        downloadProgress = 100;
+        
+        // 显示重启确认对话框
+        showRestartDialog = true;
       }
     } catch (error) {
       console.error('Failed to install update:', error);
+      downloadingUpdate = false;
+      downloadProgress = 0;
       alert(t('update.error'));
+    }
+  }
+
+  async function restartApp() {
+    try {
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    } catch (error) {
+      console.error('Failed to restart app:', error);
+      alert('Failed to restart application. Please restart manually.');
     }
   }
 
@@ -260,7 +314,7 @@
       <div class="space-y-4">
         <button
           onclick={checkForUpdate}
-          disabled={checkingUpdate}
+          disabled={checkingUpdate || downloadingUpdate}
           class="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-600 dark:bg-primary-500 text-white hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download class="w-5 h-5" />
@@ -268,6 +322,25 @@
             {checkingUpdate ? t('settings.checkingUpdates') : t('settings.checkForUpdates')}
           </span>
         </button>
+
+        <!-- 下载进度条 -->
+        {#if downloadingUpdate}
+          <div class="space-y-2 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-gray-700 dark:text-gray-300 font-medium">{t('update.downloadProgress')}</span>
+              <span class="text-gray-600 dark:text-gray-400">{downloadProgress}%</span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5 overflow-hidden">
+              <div 
+                class="bg-primary-600 dark:bg-primary-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                style="width: {downloadProgress}%"
+              ></div>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 text-center">
+              {t('update.downloading')}
+            </p>
+          </div>
+        {/if}
       </div>
     </section>
   </div>
@@ -333,6 +406,63 @@
             {t('update.download')}
           </button>
         {/if}
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- 重启确认对话框 -->
+{#if showRestartDialog}
+  <div 
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10001]" 
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="restart-dialog-title"
+    onclick={() => showRestartDialog = false}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') {
+        showRestartDialog = false;
+      }
+    }}
+    tabindex="-1"
+  >
+    <div 
+      class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 p-6" 
+      onclick={(e) => e.stopPropagation()}
+      role="document"
+      onkeydown={(e) => e.stopPropagation()}
+    >
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center flex-shrink-0">
+          <RefreshCw class="w-5 h-5 text-green-600 dark:text-green-400" />
+        </div>
+        <h2 id="restart-dialog-title" class="text-xl font-bold text-gray-900 dark:text-gray-100">
+          {t('update.downloadComplete')}
+        </h2>
+      </div>
+      
+      <p class="text-gray-700 dark:text-gray-300 mb-6">
+        {t('update.restartConfirm')}
+      </p>
+
+      <div class="flex gap-3 justify-end">
+        <button
+          onclick={() => {
+            showRestartDialog = false;
+            downloadComplete = false;
+            downloadProgress = 0;
+          }}
+          class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+        >
+          {t('update.restartLater')}
+        </button>
+        <button
+          onclick={restartApp}
+          class="px-4 py-2 text-sm font-medium text-white bg-primary-600 dark:bg-primary-500 rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors flex items-center gap-2"
+        >
+          <RefreshCw class="w-4 h-4" />
+          {t('update.restartToUpdate')}
+        </button>
       </div>
     </div>
   </div>
