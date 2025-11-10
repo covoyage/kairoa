@@ -410,12 +410,20 @@
         // FormData 转换为 application/x-www-form-urlencoded 格式
         const formDataPairs: string[] = [];
         tab.formData.forEach((item) => {
-          if (item.enabled && item.key.trim() && item.value.trim()) {
-            formDataPairs.push(`${encodeURIComponent(item.key.trim())}=${encodeURIComponent(item.value.trim())}`);
+          if (item.enabled && item.key.trim()) {
+            // 对于 url-encoded，即使 value 为空也要包含（key= 的形式）
+            const key = encodeURIComponent(item.key.trim());
+            const value = item.value.trim() ? encodeURIComponent(item.value.trim()) : '';
+            formDataPairs.push(`${key}=${value}`);
           }
         });
-        requestBody = formDataPairs.join('&');
-        requestHeaders['Content-Type'] = requestHeaders['Content-Type'] || 'application/x-www-form-urlencoded';
+        if (formDataPairs.length > 0) {
+          requestBody = formDataPairs.join('&');
+          // 只有在没有 Content-Type header 时才添加
+          if (!requestHeaders['Content-Type'] && !requestHeaders['content-type']) {
+            requestHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+          }
+        }
       }
 
       // 检查是否在 Tauri 环境中，如果是则优先使用 Tauri API（绕过 CORS）
@@ -668,10 +676,12 @@
 
       // 提取 body
       // 使用更精确的正则表达式匹配，支持单引号、双引号或无引号
+      // 注意：-d 和 --data 的优先级应该低于 --data-raw、--data-urlencode 等
       const dataPatterns = [
         { pattern: /--data-raw\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'raw' },
         { pattern: /--data-urlencode\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'urlencode' },
         { pattern: /--data-binary\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'binary' },
+        { pattern: /(?:^|\s)-d\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'data' },
         { pattern: /--data\s+((?:'[^']*'|"[^"]*"|[^\s]+))/gi, type: 'data' }
       ];
       
@@ -699,6 +709,12 @@
         }
       }
       
+      // 检查是否有 Content-Type: application/x-www-form-urlencoded header
+      const hasUrlEncodedHeader = result.headers?.some(h => 
+        h.key.toLowerCase() === 'content-type' && 
+        h.value.toLowerCase().includes('application/x-www-form-urlencoded')
+      ) || false;
+      
       if (bodyContent.trim()) {
         if (bodyType === 'urlencode') {
           // --data-urlencode 通常用于 URL encoded 数据
@@ -720,6 +736,14 @@
                   const value = pair.substring(equalIndex + 1);
                   formData.push({ key, value, enabled: true, type: 'text', file: null });
                 }
+              } else if (equalIndex === 0) {
+                // 处理 key= 的情况（空值）
+                try {
+                  const key = decodeURIComponent(pair.substring(1));
+                  formData.push({ key, value: '', enabled: true, type: 'text', file: null });
+                } catch {
+                  formData.push({ key: pair.substring(1), value: '', enabled: true, type: 'text', file: null });
+                }
               }
             });
             result.formData = formData;
@@ -731,6 +755,62 @@
             } catch {
               result.bodyType = 'text';
               result.bodyText = bodyContent;
+            }
+          }
+        } else if (bodyType === 'data' || bodyType === 'raw') {
+          // 对于 -d 或 --data，检查是否是 URL encoded 格式
+          // 1. 如果有 Content-Type: application/x-www-form-urlencoded header
+          // 2. 或者 body 内容是 key=value&key=value 格式（不包含 JSON 或 XML 特征）
+          const isUrlEncodedFormat = bodyContent.includes('=') && 
+                                     bodyContent.includes('&') && 
+                                     !bodyContent.includes('{') && 
+                                     !bodyContent.includes('[') &&
+                                     !bodyContent.trim().startsWith('<');
+          
+          if (hasUrlEncodedHeader || isUrlEncodedFormat) {
+            // 解析为 url-encoded
+            result.bodyType = 'url-encoded';
+            const pairs = bodyContent.split('&');
+            const formData: FormDataItem[] = [];
+            pairs.forEach(pair => {
+              const equalIndex = pair.indexOf('=');
+              if (equalIndex > 0) {
+                try {
+                  const key = decodeURIComponent(pair.substring(0, equalIndex));
+                  const value = decodeURIComponent(pair.substring(equalIndex + 1));
+                  formData.push({ key, value, enabled: true, type: 'text', file: null });
+                } catch {
+                  // 如果解码失败，使用原始值
+                  const key = pair.substring(0, equalIndex);
+                  const value = pair.substring(equalIndex + 1);
+                  formData.push({ key, value, enabled: true, type: 'text', file: null });
+                }
+              } else if (equalIndex === 0) {
+                // 处理 key= 的情况（空值）
+                try {
+                  const key = decodeURIComponent(pair.substring(1));
+                  formData.push({ key, value: '', enabled: true, type: 'text', file: null });
+                } catch {
+                  formData.push({ key: pair.substring(1), value: '', enabled: true, type: 'text', file: null });
+                }
+              }
+            });
+            result.formData = formData;
+          } else {
+            // 尝试解析为 JSON
+            try {
+              const json = JSON.parse(bodyContent);
+              result.bodyType = 'json';
+              result.bodyJson = JSON.stringify(json, null, 2);
+            } catch {
+              // 检查是否是 XML
+              if (bodyContent.trim().startsWith('<')) {
+                result.bodyType = 'xml';
+                result.bodyXml = bodyContent;
+              } else {
+                result.bodyType = 'text';
+                result.bodyText = bodyContent;
+              }
             }
           }
         } else {
