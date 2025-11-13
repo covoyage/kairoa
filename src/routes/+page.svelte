@@ -81,7 +81,8 @@
       key: 'nav.imageTools',
       subItems: [
         { label: '旋转', key: 'imageTools.rotate.title', type: 'rotate' },
-        { label: '缩放', key: 'imageTools.scale.title', type: 'scale' }
+        { label: '缩放', key: 'imageTools.scale.title', type: 'scale' },
+        { label: '格式转换', key: 'imageTools.convert.title', type: 'convert' }
       ]
     },
     { path: '/crontab', icon: Calendar, key: 'nav.crontab', subItems: [] },

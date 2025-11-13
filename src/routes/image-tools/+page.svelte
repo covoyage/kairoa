@@ -4,14 +4,14 @@
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   
-  type ToolType = 'rotate' | 'scale';
+  type ToolType = 'rotate' | 'scale' | 'convert';
   
   let toolType = $state<ToolType>('rotate');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'rotate' || typeParam === 'scale') {
+    if (typeParam === 'rotate' || typeParam === 'scale' || typeParam === 'convert') {
       toolType = typeParam as ToolType;
     }
   });
@@ -32,6 +32,12 @@
   let scaleHeight = $state<number>(0);
   let scalePercentage = $state<number>(100); // 缩放百分比
   let maintainAspectRatio = $state<boolean>(true); // 保持宽高比
+  
+  // Convert related state
+  type ImageFormat = 'png' | 'jpg' | 'webp' | 'gif';
+  let targetFormat = $state<ImageFormat>('png');
+  let convertedImageUrl = $state<string>('');
+  let convertedImageBlob = $state<Blob | null>(null);
   
   // Tauri API
   let saveFn: ((options: any) => Promise<string | null>) | null = $state(null);
@@ -306,7 +312,7 @@
       try {
         // Get file extension from original file
         const ext = imageFile?.name.split('.').pop() || 'png';
-        const defaultName = `rotated_${imageFile?.name || 'image.png'}`;
+        const defaultName = `kairoa_rotated_${imageFile?.name || 'image.png'}`;
         
         // Show save dialog
         const filePath = await saveFn({
@@ -340,7 +346,110 @@
       // Fallback to browser download
       const a = document.createElement('a');
       a.href = processedImageUrl;
-      a.download = `rotated_${imageFile?.name || 'image.png'}`;
+      a.download = `kairoa_rotated_${imageFile?.name || 'image.png'}`;
+      a.click();
+      
+      successMessage = t('imageTools.downloadStarted');
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    }
+  }
+
+  async function convertImageFormat() {
+    if (!imageFile || !imageUrl) {
+      error = t('imageTools.noImageSelected');
+      return;
+    }
+    
+    isProcessing = true;
+    error = '';
+    
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Draw image to canvas
+      ctx.drawImage(img, 0, 0);
+      
+      // Convert to target format
+      const mimeType = `image/${targetFormat === 'jpg' ? 'jpeg' : targetFormat}`;
+      const quality = targetFormat === 'jpg' || targetFormat === 'webp' ? 0.92 : undefined;
+      
+      canvas.toBlob((blob) => {
+        if (blob) {
+          if (convertedImageUrl) {
+            URL.revokeObjectURL(convertedImageUrl);
+          }
+          convertedImageBlob = blob;
+          convertedImageUrl = URL.createObjectURL(blob);
+        }
+        isProcessing = false;
+      }, mimeType, quality);
+      
+    } catch (err) {
+      error = `Error: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      isProcessing = false;
+    }
+  }
+
+  async function downloadConvertedImage() {
+    if (!convertedImageUrl || !convertedImageBlob) return;
+    
+    successMessage = '';
+    error = '';
+    
+    // Use Tauri save dialog if available
+    if (isTauriAvailable && saveFn && writeFileFn) {
+      try {
+        const originalName = imageFile?.name.split('.').slice(0, -1).join('.') || 'image';
+        const defaultName = `kairoa_${originalName}.${targetFormat}`;
+        
+        // Show save dialog
+        const filePath = await saveFn({
+          defaultPath: defaultName,
+          filters: [{
+            name: 'Image',
+            extensions: [targetFormat]
+          }]
+        });
+        
+        if (filePath) {
+          const arrayBuffer = await convertedImageBlob.arrayBuffer();
+          const uint8Array = new Uint8Array(arrayBuffer);
+          
+          // Write file using Tauri
+          await writeFileFn(filePath, uint8Array);
+          
+          // Show success message
+          successMessage = t('imageTools.saveSuccess');
+          setTimeout(() => {
+            successMessage = '';
+          }, 3000);
+        }
+      } catch (err) {
+        error = `${t('imageTools.saveFailed')}: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      }
+    } else {
+      // Fallback to browser download
+      const a = document.createElement('a');
+      a.href = convertedImageUrl;
+      a.download = `kairoa_${imageFile?.name.split('.').slice(0, -1).join('.') || 'image'}.${targetFormat}`;
       a.click();
       
       successMessage = t('imageTools.downloadStarted');
@@ -357,9 +466,14 @@
     if (processedImageUrl) {
       URL.revokeObjectURL(processedImageUrl);
     }
+    if (convertedImageUrl) {
+      URL.revokeObjectURL(convertedImageUrl);
+    }
     imageFile = null;
     imageUrl = '';
     processedImageUrl = '';
+    convertedImageUrl = '';
+    convertedImageBlob = null;
     rotationAngle = 0;
     realTimeRotation = 0;
     error = '';
@@ -497,7 +611,7 @@
       try {
         // Get file extension from original file
         const ext = imageFile?.name.split('.').pop() || 'png';
-        const defaultName = `scaled_${scaleWidth}x${scaleHeight}_${imageFile?.name || 'image.png'}`;
+        const defaultName = `kairoa_scaled_${scaleWidth}x${scaleHeight}_${imageFile?.name || 'image.png'}`;
         
         // Show save dialog
         const filePath = await saveFn({
@@ -531,7 +645,7 @@
       // Fallback to browser download
       const a = document.createElement('a');
       a.href = processedImageUrl;
-      a.download = `scaled_${scaleWidth}x${scaleHeight}_${imageFile?.name || 'image.png'}`;
+      a.download = `kairoa_scaled_${scaleWidth}x${scaleHeight}_${imageFile?.name || 'image.png'}`;
       a.click();
       
       successMessage = t('imageTools.downloadStarted');
@@ -616,6 +730,17 @@
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
+          <button
+            onclick={() => switchToolType('convert')}
+            class="px-4 py-2 relative transition-colors font-medium {toolType === 'convert'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('imageTools.convert.title')}
+            {#if toolType === 'convert'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
         </div>
       </div>
     </div>
@@ -640,11 +765,11 @@
         
         <!-- File Upload - 只在没有图片时显示 -->
         {#if !imageUrl}
-          <div class="flex-shrink-0">
+          <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30' : ''}">
             <div
               role="button"
               tabindex="0"
-              class="border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 scale-105' : 'border-gray-300 dark:border-gray-600 hover:border-primary-500 dark:hover:border-primary-400'}"
+              class="text-center cursor-pointer"
               ondrop={handleDrop}
               ondragover={handleDragOver}
               ondragenter={handleDragEnter}
@@ -652,8 +777,8 @@
               onclick={() => document.getElementById('image-upload')?.click()}
               onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload')?.click()}
             >
-              <Upload class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p class="text-gray-600 dark:text-gray-400 mb-2 text-base">
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
                 {t('imageTools.dragDropImage')}
               </p>
               <p class="text-sm text-gray-500 dark:text-gray-500">
@@ -896,11 +1021,11 @@
         
         <!-- File Upload - 只在没有图片时显示 -->
         {#if !imageUrl}
-          <div class="flex-shrink-0">
+          <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50 {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30' : ''}">
             <div
               role="button"
               tabindex="0"
-              class="border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 cursor-pointer {isDragging ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/30 scale-105' : 'border-gray-300 dark:border-gray-600 hover:border-primary-500 dark:hover:border-primary-400'}"
+              class="text-center cursor-pointer"
               ondrop={handleDrop}
               ondragover={handleDragOver}
               ondragenter={handleDragEnter}
@@ -908,8 +1033,8 @@
               onclick={() => document.getElementById('image-upload-scale')?.click()}
               onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-scale')?.click()}
             >
-              <Upload class="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p class="text-gray-600 dark:text-gray-400 mb-2 text-base">
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
                 {t('imageTools.dragDropImage')}
               </p>
               <p class="text-sm text-gray-500 dark:text-gray-500">
@@ -1112,6 +1237,155 @@
                 </div>
               </div>
             {/if}
+          </div>
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Convert Tool -->
+    {#if toolType === 'convert'}
+      <div 
+        class="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto transition-all duration-200 {isDragging ? 'ring-2 ring-primary-500 dark:ring-primary-400 ring-offset-2 bg-primary-50/50 dark:bg-primary-900/20' : ''}"
+        ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
+        ondragover={(e) => { e.stopPropagation(); handleDragOver(e); }}
+        ondragenter={(e) => { e.stopPropagation(); handleDragEnter(e); }}
+        ondragleave={(e) => { e.stopPropagation(); handleDragLeave(e); }}
+      >
+        <!-- File Upload Input -->
+        <input
+          type="file"
+          id="image-upload-convert"
+          accept="image/*"
+          onchange={handleFileSelect}
+          class="hidden"
+        />
+        
+        <!-- 图片上传区域 -->
+        <div class="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 hover:border-primary-500 dark:hover:border-primary-400 transition-colors bg-gray-50 dark:bg-gray-800/50">
+          {#if !imageUrl}
+            <div
+              role="button"
+              tabindex="0"
+              class="text-center cursor-pointer"
+              onclick={() => document.getElementById('image-upload-convert')?.click()}
+              onkeydown={(e) => e.key === 'Enter' && document.getElementById('image-upload-convert')?.click()}
+            >
+              <Upload class="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4 mx-auto" />
+              <p class="text-gray-600 dark:text-gray-400 mb-2">
+                {t('imageTools.dragDropImage')}
+              </p>
+              <p class="text-sm text-gray-500 dark:text-gray-500">
+                {t('imageTools.supportedFormats')}
+              </p>
+            </div>
+          {:else}
+            <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- 原始图片 -->
+              <div class="space-y-3 flex flex-col">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('imageTools.original')}
+                </h3>
+                <div class="border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-900 flex items-center justify-center" style="min-height: 384px;">
+                  <img
+                    src={imageUrl}
+                    alt="Original"
+                    class="w-full h-auto max-h-96 object-contain"
+                  />
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                  {imageFile?.name || 'image'}
+                </p>
+              </div>
+
+              <!-- 转换后图片 -->
+              <div class="space-y-3 flex flex-col">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  {t('imageTools.convert.converted')}
+                </h3>
+                <div class="border-2 {convertedImageUrl ? 'border-primary-500 dark:border-primary-400' : 'border-dashed border-gray-300 dark:border-gray-600'} rounded-lg overflow-hidden {convertedImageUrl ? 'bg-gray-100 dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'} flex items-center justify-center" style="min-height: 384px;">
+                  {#if convertedImageUrl}
+                    <img
+                      src={convertedImageUrl}
+                      alt="Converted"
+                      class="w-full h-auto max-h-96 object-contain"
+                    />
+                  {:else}
+                    <p class="text-gray-500 dark:text-gray-400">
+                      {t('imageTools.convert.previewPlaceholder')}
+                    </p>
+                  {/if}
+                </div>
+                {#if convertedImageUrl}
+                  <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {imageFile?.name.split('.').slice(0, -1).join('.') || 'image'}.{targetFormat}
+                  </p>
+                {/if}
+              </div>
+            </div>
+
+            <!-- 格式选择和控制 -->
+            <div class="w-full max-w-4xl space-y-4 mt-6">
+              <div class="flex items-center gap-4">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t('imageTools.convert.targetFormat')}:
+                </label>
+                <select
+                  bind:value={targetFormat}
+                  class="input"
+                  onchange={() => {
+                    if (convertedImageUrl) {
+                      convertImageFormat();
+                    }
+                  }}
+                >
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPG</option>
+                  <option value="webp">WebP</option>
+                  <option value="gif">GIF</option>
+                </select>
+              </div>
+
+              <div class="flex gap-3">
+                <button
+                  onclick={convertImageFormat}
+                  disabled={isProcessing || !imageUrl}
+                  class="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {#if isProcessing}
+                    {t('imageTools.processing')}
+                  {:else}
+                    {t('imageTools.convert.convert')}
+                  {/if}
+                </button>
+                {#if convertedImageUrl}
+                  <button
+                    onclick={downloadConvertedImage}
+                    class="btn-secondary flex items-center gap-2"
+                  >
+                    <Download class="w-4 h-4" />
+                    {t('imageTools.download')}
+                  </button>
+                {/if}
+                <button
+                  onclick={clearImage}
+                  class="btn-secondary"
+                >
+                  {t('imageTools.clear')}
+                </button>
+              </div>
+            </div>
+          {/if}
+        </div>
+
+        {#if error}
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p class="text-sm text-red-800 dark:text-red-200">{error}</p>
+          </div>
+        {/if}
+
+        {#if successMessage}
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <p class="text-sm text-green-800 dark:text-green-200">{successMessage}</p>
           </div>
         {/if}
       </div>

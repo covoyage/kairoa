@@ -56,6 +56,7 @@ const translations = {
       noImageSelected: 'Please select an image first',
       processing: 'Processing...',
       download: 'Download',
+      clear: 'Clear',
       original: 'Original',
       processed: 'Processed',
       saveSuccess: '✓ Image saved successfully',
@@ -74,6 +75,13 @@ const translations = {
         maintainAspectRatio: 'Maintain Aspect Ratio',
         originalSize: 'Original Size',
         invalidDimensions: 'Invalid dimensions'
+      },
+      convert: {
+        title: 'Format Convert',
+        converted: 'Converted',
+        targetFormat: 'Target Format',
+        convert: 'Convert',
+        previewPlaceholder: 'Converted image will appear here'
       }
     },
     hash: {
@@ -619,6 +627,7 @@ const translations = {
       noImageSelected: '请先选择图片',
       processing: '处理中...',
       download: '下载',
+      clear: '清空',
       original: '原图',
       processed: '处理后',
       saveSuccess: '✓ 图片保存成功',
@@ -637,6 +646,13 @@ const translations = {
         maintainAspectRatio: '保持宽高比',
         originalSize: '原始尺寸',
         invalidDimensions: '无效的尺寸'
+      },
+      convert: {
+        title: '格式转换',
+        converted: '转换后',
+        targetFormat: '目标格式',
+        convert: '转换',
+        previewPlaceholder: '转换后的图片将显示在这里'
       }
     },
     hash: {
