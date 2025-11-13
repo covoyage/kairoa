@@ -628,7 +628,8 @@ const translations = {
       previewerDesc: '预览 SVG、Markdown 和 Mermaid 图表',
       imageToolsDesc: '旋转和缩放图片',
       colorDesc: '颜色格式转换（HEX、RGB、HSL）',
-      baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）'
+      baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）',
+      qrCodeDesc: '从文本或 URL 生成二维码'
     },
     nav: {
       hash: 'Hash 计算器',
