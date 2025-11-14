@@ -2173,13 +2173,9 @@
               </p>
             </div>
           {:else}
-            <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="w-full max-w-6xl grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4">
               <!-- Controls -->
               <div class="space-y-4">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                  {t('imageTools.transparent.title')}
-                </h3>
-                
                 <!-- Background Color Picker -->
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
@@ -2188,28 +2184,25 @@
                     </label>
                     <button
                       onclick={detectBackgroundColor}
-                      class="text-xs px-3 py-1.5 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
+                      class="text-xs px-2 py-1 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded hover:bg-primary-200 dark:hover:bg-primary-900/50 transition-colors"
                       disabled={!imageUrl || isProcessing}
                     >
                       {t('imageTools.transparent.autoDetect')}
                     </button>
                   </div>
-                  <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
                     <input
                       type="color"
                       bind:value={backgroundColor}
-                      class="w-16 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
+                      class="w-12 h-10 rounded border border-gray-300 dark:border-gray-600 cursor-pointer"
                     />
                     <input
                       type="text"
                       bind:value={backgroundColor}
-                      class="input flex-1"
+                      class="input flex-1 text-sm"
                       placeholder="#FFFFFF"
                     />
                   </div>
-                  <p class="text-xs text-gray-500 dark:text-gray-400">
-                    {t('imageTools.transparent.backgroundColorHint')}
-                  </p>
                 </div>
                 
                 <!-- Color Tolerance -->
@@ -2235,35 +2228,34 @@
                 </div>
                 
                 <!-- Action Buttons -->
-                <div class="flex gap-3">
+                <div class="space-y-2">
                   <button
                     onclick={makeTransparent}
                     disabled={isProcessing}
-                    class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                   >
                     {isProcessing ? t('imageTools.processing') : t('imageTools.transparent.apply')}
                   </button>
                   {#if transparentImageUrl}
                     <button
                       onclick={downloadTransparentImage}
-                      class="btn-secondary flex items-center gap-2"
+                      class="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
                     >
                       <Download class="w-4 h-4" />
                       {t('imageTools.download')}
                     </button>
                   {/if}
+                  <button
+                    onclick={clearImage}
+                    class="btn-secondary w-full text-sm"
+                  >
+                    {t('imageTools.clear')}
+                  </button>
                 </div>
-                
-                <button
-                  onclick={clearImage}
-                  class="btn-secondary w-full"
-                >
-                  {t('imageTools.clear')}
-                </button>
               </div>
               
               <!-- Image Preview -->
-              <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="flex flex-col">
                   <div class="flex items-center justify-between mb-2">
                     <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
