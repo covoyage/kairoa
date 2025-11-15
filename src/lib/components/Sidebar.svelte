@@ -3,13 +3,23 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
     { path: '/hash', icon: Hash, key: 'nav.hash' },
     { path: '/time', icon: Clock, key: 'nav.time' },
-    { path: '/uuid', icon: Key, key: 'nav.uuid' },
+    { 
+      path: '/generator', 
+      icon: Sparkles, 
+      key: 'nav.generator',
+      subItems: [
+        { label: 'UUID/ULID', key: 'nav.uuid', type: 'uuid', directPath: '/generator?tab=uuid' },
+        { label: 'OTP', key: 'nav.otp', type: 'otp', directPath: '/generator?tab=otp' },
+        { label: 'Basic Auth', key: 'nav.basicAuth', type: 'basic-auth', directPath: '/generator?tab=basic-auth' },
+        { label: 'HMAC', key: 'nav.hmac', type: 'hmac', directPath: '/generator?tab=hmac' }
+      ]
+    },
     { 
       path: '/encode-decode', 
       icon: Code, 
@@ -19,7 +29,8 @@
         { label: 'Image Base64', key: 'encodeDecode.imageBase64', type: 'image-base64' },
         { label: 'URL', key: 'encodeDecode.urlEncoded', type: 'url' },
         { label: 'ASCII', key: 'encodeDecode.ascii', type: 'ascii' },
-        { label: 'JWT', key: 'jwt.title', type: 'jwt' }
+        { label: 'JWT', key: 'jwt.title', type: 'jwt' },
+        { label: 'HTML', key: 'encodeDecode.html', type: 'html' }
       ]
     },
     { 
@@ -74,7 +85,6 @@
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
-    { path: '/basic-auth', icon: ShieldCheck, key: 'nav.basicAuth' },
   ];
 
   // 从 localStorage 加载侧边栏状态
@@ -198,7 +208,23 @@
         {@const Icon = item.icon}
         <a
           href={item.path}
-          class="flex items-center {isCollapsed ? 'justify-center w-full min-w-0' : 'gap-3'} px-3 py-2.5 rounded-lg transition-colors relative {currentPath === item.path
+          onclick={(e) => {
+            // 如果菜单有子项，导航到主页面（不导航到第一个子项）
+            if (item.subItems && item.subItems.length > 0) {
+              // 对于 generator 菜单，直接导航到主页面
+              if (item.path === '/generator') {
+                e.preventDefault();
+                goto('/generator');
+              }
+            }
+          }}
+          class="flex items-center {isCollapsed ? 'justify-center w-full min-w-0' : 'gap-3'} px-3 py-2.5 rounded-lg transition-colors relative {(currentPath === item.path || (item.subItems && item.subItems.some(subItem => {
+              if (subItem.directPath) {
+                const directPath = subItem.directPath.split('?')[0];
+                return currentPath === directPath || currentPath.startsWith(directPath + '?');
+              }
+              return false;
+            })))
             ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'
             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'}"
           onmouseenter={(e) => {
@@ -289,11 +315,11 @@
           <div class="py-1">
             {#each item.subItems as subItem}
               <a
-                href="{item.path}{subItem.type ? `?type=${subItem.type}` : ''}"
+                href="{subItem.directPath || item.path}{subItem.type ? `?type=${subItem.type}` : ''}"
                 class="block px-3 py-1.5 text-gray-300 dark:text-gray-400 hover:bg-gray-800 dark:hover:bg-gray-600 hover:text-white dark:hover:text-gray-100 cursor-pointer transition-colors"
                 onclick={(e) => {
                   e.preventDefault();
-                  goto(`${item.path}${subItem.type ? `?type=${subItem.type}` : ''}`);
+                  goto(`${subItem.directPath || item.path}${subItem.type ? `?type=${subItem.type}` : ''}`);
                   hoveredMenuItem = null;
                   tooltipPosition = null;
                 }}

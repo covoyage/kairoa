@@ -30,11 +30,13 @@ const translations = {
       qrCodeDesc: 'Generate QR codes from text or URLs',
       chmodDesc: 'Calculate and convert file permissions (chmod)',
       keycodeDesc: 'View keyboard key codes and event information',
-      basicAuthDesc: 'Generate HTTP Basic Authentication headers'
+      basicAuthDesc: 'Generate HTTP Basic Authentication headers',
+      otpDesc: 'Generate TOTP and HOTP one-time passwords'
     },
     nav: {
       hash: 'Hash Calculator',
       time: 'Time Converter',
+      generator: 'Generator',
       uuid: 'UUID/ULID Generator',
       json: 'JSON Formatter',
       encodeDecode: 'Encode/Decode',
@@ -53,6 +55,8 @@ const translations = {
       chmod: 'Chmod Calculator',
       keycode: 'Keycode Info',
       basicAuth: 'Basic Auth Generator',
+      otp: 'OTP Generator',
+      hmac: 'HMAC Generator',
       settings: 'Settings'
     },
     imageTools: {
@@ -254,12 +258,15 @@ const translations = {
       base64: 'Base64',
       urlEncoded: 'URL Encoded',
       ascii: 'ASCII',
+      html: 'HTML entities',
       image: 'Image',
       imageBase64: 'Image/Base64',
       base64Encode: 'BASE64 Encode',
       base64Decode: 'BASE64 Decode',
       urlEncode: 'URL Encode',
-      urlDecode: 'URL Decode'
+      urlDecode: 'URL Decode',
+      encodeHTMLPlaceholder: 'Enter text to escape...',
+      decodeHTMLPlaceholder: 'Enter HTML entities to decode...'
     },
     crontab: {
       title: 'Crontab Calculator',
@@ -715,6 +722,39 @@ const translations = {
       curlHint: 'Example cURL command with Basic Auth',
       placeholder: 'Enter username and password to generate Basic Auth credentials'
     },
+    otp: {
+      type: 'Type',
+      secret: 'Secret Key',
+      secretPlaceholder: 'Enter secret key (Base32 or raw)',
+      secretHint: 'Enter your secret key in Base32 format or raw text',
+      algorithm: 'Algorithm',
+      digits: 'Digits',
+      period: 'Period (seconds)',
+      periodHint: 'Time step for TOTP (default: 30 seconds)',
+      counter: 'Counter',
+      counterHint: 'Counter value for HOTP (increment after each use)',
+      code: 'OTP Code',
+      autoRefresh: 'Auto Refresh',
+      increment: 'Increment Counter',
+      clear: 'Clear',
+      timeRemaining: 'Time Remaining',
+      placeholder: 'Enter secret key to generate OTP code'
+    },
+    hmac: {
+      input: 'Input',
+      key: 'Key',
+      keyPlaceholder: 'Enter HMAC key',
+      message: 'Message',
+      messagePlaceholder: 'Enter message to sign',
+      algorithm: 'Algorithm',
+      outputFormat: 'Output Format',
+      generate: 'Generate',
+      clear: 'Clear',
+      result: 'Result',
+      keyRequired: 'Key is required',
+      messageRequired: 'Message is required',
+      placeholder: 'Enter key and message to generate HMAC'
+    },
     qrCode: {
       invalidLogoType: 'Please select a valid image file',
       saveSuccess: '✓ QR code saved successfully',
@@ -748,11 +788,13 @@ const translations = {
       qrCodeDesc: '从文本或 URL 生成二维码',
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
-      basicAuthDesc: '生成 HTTP Basic Authentication 认证头'
+      basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
+      otpDesc: '生成 TOTP 和 HOTP 一次性密码'
     },
     nav: {
       hash: 'Hash 计算器',
       time: '时间转换',
+      generator: '生成器',
       uuid: 'UUID/ULID 生成器',
       json: 'JSON 格式化',
       encodeDecode: '编解码',
@@ -771,6 +813,8 @@ const translations = {
       chmod: 'Chmod 权限计算器',
       keycode: '按键代码信息',
       basicAuth: 'Basic Auth 生成器',
+      otp: 'OTP 生成器',
+      hmac: 'HMAC 生成器',
       settings: '设置'
     },
     imageTools: {
@@ -972,12 +1016,15 @@ const translations = {
       base64: 'BASE64',
       urlEncoded: 'URL编码',
       ascii: 'ASCII',
+      html: 'HTML 实体',
       image: '图片',
       imageBase64: '图片/Base64',
       base64Encode: 'BASE64编码',
       base64Decode: 'BASE64解码',
       urlEncode: 'URL编码',
-      urlDecode: 'URL解码'
+      urlDecode: 'URL解码',
+      encodeHTMLPlaceholder: '输入要转义的文本...',
+      decodeHTMLPlaceholder: '输入要解码的 HTML 实体...'
     },
     crontab: {
       title: 'Crontab 计算器',
@@ -1433,6 +1480,39 @@ const translations = {
       curlExample: 'cURL 示例',
       curlHint: '使用 Basic Auth 的 cURL 命令示例',
       placeholder: '输入用户名和密码以生成 Basic Auth 凭证'
+    },
+    otp: {
+      type: '类型',
+      secret: '密钥',
+      secretPlaceholder: '输入密钥（Base32 或原始文本）',
+      secretHint: '输入 Base32 格式或原始文本格式的密钥',
+      algorithm: '算法',
+      digits: '位数',
+      period: '时间步长（秒）',
+      periodHint: 'TOTP 的时间步长（默认：30 秒）',
+      counter: '计数器',
+      counterHint: 'HOTP 的计数器值（每次使用后递增）',
+      code: 'OTP 代码',
+      autoRefresh: '自动刷新',
+      increment: '递增计数器',
+      clear: '清空',
+      timeRemaining: '剩余时间',
+      placeholder: '输入密钥以生成 OTP 代码'
+    },
+    hmac: {
+      input: '输入',
+      key: '密钥',
+      keyPlaceholder: '输入 HMAC 密钥',
+      message: '消息',
+      messagePlaceholder: '输入要签名的消息',
+      algorithm: '算法',
+      outputFormat: '输出格式',
+      generate: '生成',
+      clear: '清空',
+      result: '结果',
+      keyRequired: '密钥是必需的',
+      messageRequired: '消息是必需的',
+      placeholder: '输入密钥和消息以生成 HMAC'
     },
     qrCode: {
       saveSuccess: '✓ 二维码保存成功',

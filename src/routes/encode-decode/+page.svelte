@@ -4,14 +4,14 @@
   import { Copy, Check, Trash2 } from 'lucide-svelte';
   import { page } from '$app/stores';
   
-  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt';
+  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html';
   
   let encodeType = $state<EncodeType>('base64');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt') {
+    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt' || typeParam === 'html') {
       encodeType = typeParam as EncodeType;
     }
   });
@@ -220,6 +220,36 @@
     }
   }
 
+  function encodeHTML() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      const div = document.createElement('div');
+      div.textContent = input;
+      output = div.innerHTML;
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+
+  function decodeHTML() {
+    if (!output.trim()) {
+      input = '';
+      return;
+    }
+
+    try {
+      const div = document.createElement('div');
+      div.innerHTML = output;
+      input = div.textContent || div.innerText || '';
+    } catch (error) {
+      input = `Error: ${error instanceof Error ? error.message : 'Invalid HTML entities'}`;
+    }
+  }
+
   function process() {
     if (encodeType === 'base64') {
       if (isEncoding) {
@@ -244,6 +274,12 @@
         encodeASCII();
       } else {
         decodeASCII();
+      }
+    } else if (encodeType === 'html') {
+      if (isEncoding) {
+        encodeHTML();
+      } else {
+        decodeHTML();
       }
     }
   }
@@ -585,6 +621,17 @@
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
+          <button
+            onclick={() => switchEncodeType('html')}
+            class="px-4 py-2 relative transition-colors font-medium {encodeType === 'html'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('encodeDecode.html')}
+            {#if encodeType === 'html'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
         </div>
       </div>
 
@@ -856,7 +903,7 @@
                 bind:value={input}
                 readonly={!isEncoding}
                 placeholder={isEncoding 
-                  ? (encodeType === 'base64' ? t('encodeDecode.encodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.encodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.encodeURLPlaceholder') : t('encodeDecode.encodeASCIIPlaceholder'))
+                  ? (encodeType === 'base64' ? t('encodeDecode.encodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.encodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.encodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.encodeHTMLPlaceholder') : t('encodeDecode.encodeASCIIPlaceholder'))
                   : ''}
                 class="textarea h-full resize-none {!isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} {!isEncoding && input ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
               ></textarea>
@@ -905,6 +952,8 @@
                 ? t('encodeDecode.base64')
                 : encodeType === 'url'
                 ? t('encodeDecode.urlEncoded')
+                : encodeType === 'html'
+                ? t('encodeDecode.html')
                 : t('encodeDecode.ascii')}
             </div>
             {#if isEncoding && output}
@@ -930,7 +979,7 @@
               bind:value={output}
               readonly={isEncoding}
               placeholder={!isEncoding 
-                ? (encodeType === 'base64' ? t('encodeDecode.decodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.decodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.decodeURLPlaceholder') : t('encodeDecode.decodeASCIIPlaceholder'))
+                ? (encodeType === 'base64' ? t('encodeDecode.decodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.decodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.decodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.decodeHTMLPlaceholder') : t('encodeDecode.decodeASCIIPlaceholder'))
                 : ''}
               class="textarea h-full resize-none font-mono text-sm {copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} {isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} transition-colors duration-300"
             ></textarea>

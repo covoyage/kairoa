@@ -1,7 +1,7 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   import { goto } from '$app/navigation';
-  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck } from 'lucide-svelte';
+  import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -29,7 +29,16 @@
     { path: '/api-client', icon: Globe, key: 'nav.apiClient', subItems: [] },
     { path: '/hash', icon: Hash, key: 'nav.hash', subItems: [] },
     { path: '/time', icon: Clock, key: 'nav.time', subItems: [] },
-    { path: '/uuid', icon: Key, key: 'nav.uuid', subItems: [] },
+    { 
+      path: '/generator', 
+      icon: Sparkles, 
+      key: 'nav.generator',
+      subItems: [
+        { label: 'UUID/ULID', key: 'nav.uuid', type: null, directPath: '/uuid' },
+        { label: 'OTP', key: 'nav.otp', type: null, directPath: '/otp' },
+        { label: 'Basic Auth', key: 'nav.basicAuth', type: null, directPath: '/basic-auth' }
+      ]
+    },
     { 
       path: '/encode-decode', 
       icon: Code, 
@@ -94,7 +103,6 @@
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode', subItems: [] },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode', subItems: [] },
-    { path: '/basic-auth', icon: ShieldCheck, key: 'nav.basicAuth', subItems: [] },
   ];
 
   // 展开所有菜单项和子菜单项为卡片
@@ -104,8 +112,9 @@
     if (item.subItems && item.subItems.length > 0) {
       // 如果有子菜单，为每个子菜单项创建一个卡片
       item.subItems.forEach(subItem => {
+        const subItemPath = (subItem as any).directPath || `${item.path}${subItem.type ? `?type=${subItem.type}` : ''}`;
         toolCards.push({
-          path: `${item.path}${subItem.type ? `?type=${subItem.type}` : ''}`,
+          path: subItemPath,
           icon: item.icon,
           titleKey: subItem.key,
           parentTitleKey: item.key, // 保存父菜单的 titleKey
