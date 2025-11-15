@@ -27,7 +27,8 @@ const translations = {
       imageToolsDesc: 'Rotate and scale images',
       colorDesc: 'Convert between color formats (HEX, RGB, HSL)',
       baseConverterDesc: 'Convert between number bases (binary, octal, decimal, hex)',
-      qrCodeDesc: 'Generate QR codes from text or URLs'
+      qrCodeDesc: 'Generate QR codes from text or URLs',
+      chmodDesc: 'Calculate and convert file permissions (chmod)'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -47,6 +48,7 @@ const translations = {
       apiClient: 'REST API Client',
       imageTools: 'Image Tools',
       qrCode: 'QR Code Generator',
+      chmod: 'Chmod Calculator',
       settings: 'Settings'
     },
     imageTools: {
@@ -645,6 +647,29 @@ const translations = {
       selectLogo: 'Select Logo',
       removeLogo: 'Remove',
       logoSize: 'Logo Size (%)',
+    },
+    chmod: {
+      title: 'Chmod Calculator',
+      description: 'Calculate and convert Unix file permissions between octal and symbolic notation',
+      permissions: 'Permissions',
+      owner: 'Owner (User)',
+      group: 'Group',
+      others: 'Others',
+      read: 'Read',
+      write: 'Write',
+      execute: 'Execute',
+      result: 'Result',
+      octal: 'Octal',
+      symbol: 'Symbol',
+      octalHint: 'Three-digit octal number (0-7)',
+      symbolHint: 'Nine-character notation (rwxrwxrwx)',
+      invalidOctal: 'Invalid octal value. Must be three digits (0-7)',
+      incompleteOctal: 'Incomplete octal value. Enter three digits',
+      invalidSymbol: 'Invalid symbol notation. Use r, w, x, or -',
+      example: 'Example Command',
+      exampleDesc: 'Use this command to set file permissions'
+    },
+    qrCode: {
       invalidLogoType: 'Please select a valid image file',
       saveSuccess: '✓ QR code saved successfully',
       saveFailed: 'Failed to save QR code',
@@ -674,7 +699,8 @@ const translations = {
       imageToolsDesc: '旋转和缩放图片',
       colorDesc: '颜色格式转换（HEX、RGB、HSL）',
       baseConverterDesc: '数字进制转换（二进制、八进制、十进制、十六进制）',
-      qrCodeDesc: '从文本或 URL 生成二维码'
+      qrCodeDesc: '从文本或 URL 生成二维码',
+      chmodDesc: '计算和转换文件权限（chmod）'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -694,6 +720,7 @@ const translations = {
       apiClient: 'REST API 客户端',
       imageTools: '图片处理',
       qrCode: '二维码生成器',
+      chmod: 'Chmod 权限计算器',
       settings: '设置'
     },
     imageTools: {
@@ -1293,6 +1320,29 @@ const translations = {
       removeLogo: '移除',
       logoSize: 'Logo 大小 (%)',
       invalidLogoType: '请选择有效的图片文件',
+    },
+    chmod: {
+      title: 'Chmod 权限计算器',
+      description: '计算和转换 Unix 文件权限（八进制和符号表示）',
+      permissions: '权限',
+      owner: '所有者（用户）',
+      group: '组',
+      others: '其他',
+      read: '读取',
+      write: '写入',
+      execute: '执行',
+      result: '结果',
+      octal: '八进制',
+      symbol: '符号',
+      octalHint: '三位八进制数字（0-7）',
+      symbolHint: '九位符号表示（rwxrwxrwx）',
+      invalidOctal: '无效的八进制值。必须是三位数字（0-7）',
+      incompleteOctal: '八进制值不完整。请输入三位数字',
+      invalidSymbol: '无效的符号表示。请使用 r、w、x 或 -',
+      example: '示例命令',
+      exampleDesc: '使用此命令设置文件权限'
+    },
+    qrCode: {
       saveSuccess: '✓ 二维码保存成功',
       saveFailed: '保存二维码失败',
       downloadStarted: '✓ 下载已开始'
