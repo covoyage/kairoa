@@ -69,11 +69,108 @@
     }
   }
 
+  // CSS style for markdown preview copy - split into parts to avoid PostCSS parsing
+  function getMarkdownPreviewStyle() {
+    const parts = [
+      'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.7;color:#1f2937;}',
+      'h1{font-size:1.875rem;font-weight:600;margin:0.75rem 0;}',
+      'h2{font-size:1.5rem;font-weight:600;margin:0.75rem 0;}',
+      'h3{font-size:1.25rem;font-weight:600;margin:0.5rem 0;}',
+      'p{margin:0.5rem 0;}',
+      'ul,ol{margin:0.5rem 0 0.5rem 1.25rem;}',
+      // Inline code
+      'code{background:#f3f4f6;padding:0.1rem 0.3rem;border-radius:0.25rem;font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:0.9em;}',
+      // Code block container - preserve whitespace and line breaks
+      'pre{background:#e5e7eb;color:#1f2937;padding:0.75rem;border-radius:0.5rem;overflow:auto;margin:0.75rem 0;line-height:1.5;white-space:pre;word-wrap:normal;overflow-wrap:normal;font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;border:1px solid #d1d5db;}',
+      // Code inside pre (code block) - remove inline code styles
+      'pre code{background:transparent;padding:0;border-radius:0;color:inherit;font-size:inherit;white-space:pre;word-wrap:normal;overflow-wrap:normal;display:block;overflow-x:auto;font-family:inherit;}',
+      'blockquote{border-left:4px solid #9ca3af;padding-left:0.75rem;color:#4b5563;margin:0.5rem 0;}',
+      'img{max-width:100%;border-radius:0.25rem;}',
+      'table{border-collapse:collapse;width:100%;}',
+      'th,td{border:1px solid #e5e7eb;padding:0.5rem;text-align:left;}',
+      'a{color:#2563eb;text-decoration:none;}',
+      'a:hover{text-decoration:underline;}'
+    ];
+    return parts.join('');
+  }
+
   async function copyPreviewContent() {
     if (!markdownContent.trim() || !previewElement) return;
-    // 从预览 DOM 元素中提取纯文本内容
-    const text = previewElement.innerText || previewElement.textContent || '';
-    await copyToClipboard(text, 'preview');
+    const bodyHtml = previewElement.innerHTML;
+    const plain = previewElement.innerText || previewElement.textContent || '';
+    const style = getMarkdownPreviewStyle();
+    // Use string concatenation instead of template literal to avoid PostCSS parsing
+    const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><' + 'style>' + style + '</' + 'style></head><body>' + bodyHtml + '</body></html>';
+    try {
+      const supportsWrite = typeof navigator.clipboard?.write === 'function';
+      if (supportsWrite) {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+      } else {
+        const temp = document.createElement('div');
+        temp.style.position = 'fixed';
+        temp.style.left = '-9999px';
+        temp.style.top = '0';
+        temp.contentEditable = 'true';
+        // Use string concatenation to avoid PostCSS parsing
+        const styleContent = getMarkdownPreviewStyle();
+        temp.innerHTML = '<' + 'style>' + styleContent + '</' + 'style>' + bodyHtml;
+        document.body.appendChild(temp);
+        const range = document.createRange();
+        range.selectNodeContents(temp);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      copied = { ...copied, preview: true };
+      setTimeout(() => {
+        copied = { ...copied, preview: false };
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  }
+
+  async function copyPreviewAsHtml() {
+    if (!markdownContent.trim() || !previewElement) return;
+    const html = previewElement.innerHTML;
+    const plain = previewElement.innerText || previewElement.textContent || '';
+    try {
+      const supportsWrite = typeof navigator.clipboard?.write === 'function';
+      if (supportsWrite) {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+      } else {
+        const temp = document.createElement('div');
+        temp.style.position = 'fixed';
+        temp.style.left = '-9999px';
+        temp.style.top = '0';
+        temp.contentEditable = 'true';
+        temp.innerHTML = html;
+        document.body.appendChild(temp);
+        const range = document.createRange();
+        range.selectNodeContents(temp);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      copied = { ...copied, preview: true };
+      setTimeout(() => {
+        copied = { ...copied, preview: false };
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy HTML:', error);
+    }
   }
 
   function clear() {
