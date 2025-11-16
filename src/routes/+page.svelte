@@ -34,9 +34,10 @@
       icon: Sparkles, 
       key: 'nav.generator',
       subItems: [
-        { label: 'UUID/ULID', key: 'nav.uuid', type: null, directPath: '/uuid' },
-        { label: 'OTP', key: 'nav.otp', type: null, directPath: '/otp' },
-        { label: 'Basic Auth', key: 'nav.basicAuth', type: null, directPath: '/basic-auth' }
+        { label: 'UUID/ULID', key: 'nav.uuid', type: null, directPath: '/generator?tab=uuid' },
+        { label: 'OTP', key: 'nav.otp', type: null, directPath: '/generator?tab=otp' },
+        { label: 'Basic Auth', key: 'nav.basicAuth', type: null, directPath: '/generator?tab=basic-auth' },
+        { label: 'HMAC', key: 'nav.hmac', type: null, directPath: '/generator?tab=hmac' }
       ]
     },
     { 
@@ -100,6 +101,7 @@
     { path: '/crontab', icon: Calendar, key: 'nav.crontab', subItems: [] },
     { path: '/color', icon: Palette, key: 'nav.color', subItems: [] },
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter', subItems: [] },
+    { path: '/roman-numeral', icon: Hash, key: 'nav.romanNumeral', subItems: [] },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode', subItems: [] },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode', subItems: [] },

@@ -82,6 +82,7 @@
     { path: '/crontab', icon: Calendar, key: 'nav.crontab' },
     { path: '/color', icon: Palette, key: 'nav.color' },
     { path: '/base-converter', icon: Binary, key: 'nav.baseConverter' },
+    { path: '/roman-numeral', icon: Hash, key: 'nav.romanNumeral' },
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },

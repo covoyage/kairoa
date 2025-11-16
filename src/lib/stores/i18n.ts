@@ -31,7 +31,8 @@ const translations = {
       chmodDesc: 'Calculate and convert file permissions (chmod)',
       keycodeDesc: 'View keyboard key codes and event information',
       basicAuthDesc: 'Generate HTTP Basic Authentication headers',
-      otpDesc: 'Generate TOTP and HOTP one-time passwords'
+      otpDesc: 'Generate TOTP and HOTP one-time passwords',
+      romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -57,6 +58,7 @@ const translations = {
       basicAuth: 'Basic Auth Generator',
       otp: 'OTP Generator',
       hmac: 'HMAC Generator',
+      romanNumeral: 'Roman Numeral Converter',
       settings: 'Settings'
     },
     imageTools: {
@@ -328,6 +330,30 @@ const translations = {
       invalidInput: 'Invalid {base} number',
       parseError: 'Failed to parse number',
       convertError: 'Failed to convert number'
+    },
+    romanNumeral: {
+      title: 'Roman Numeral Converter',
+      outputFormat: 'Output Format',
+      formatArabic: 'Arabic Number',
+      formatRoman: 'Roman Numeral',
+      formatChineseLower: 'Chinese Lowercase',
+      formatChineseUpper: 'Chinese Uppercase',
+      formatChineseAmount: 'Chinese Amount',
+      formatEnglish: 'English Number',
+      input: 'Input',
+      output: 'Output',
+      inputPlaceholder: 'Enter Arabic number or Roman numeral...',
+      inputHint: 'Supports Arabic numbers (max 15 digits) or Roman numerals (I, V, X, L, C, D, M). Roman numerals limited to 3999',
+      clear: 'Clear',
+      invalidRange: 'Number must be between 1 and 3999',
+      invalidInput: 'Invalid input. Please enter an Arabic number or a valid Roman numeral',
+      invalidArabic: 'Invalid Arabic number. Please enter a positive integer',
+      invalidRoman: 'Invalid Roman numeral format',
+      maxDigitsExceeded: 'Arabic numbers are limited to 15 digits maximum',
+      romanLimitExceeded: 'Roman numerals only support numbers up to 3999',
+      convertError: 'Conversion error',
+      examples: 'Examples',
+      example: 'Example'
     },
     textStats: {
       title: 'Text Statistics',
@@ -789,7 +815,8 @@ const translations = {
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
       basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
-      otpDesc: '生成 TOTP 和 HOTP 一次性密码'
+      otpDesc: '生成 TOTP 和 HOTP 一次性密码',
+      romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -815,6 +842,7 @@ const translations = {
       basicAuth: 'Basic Auth 生成器',
       otp: 'OTP 生成器',
       hmac: 'HMAC 生成器',
+      romanNumeral: '罗马数字转换器',
       settings: '设置'
     },
     imageTools: {
@@ -1086,6 +1114,30 @@ const translations = {
       invalidInput: '无效的 {base} 进制数字',
       parseError: '解析数字失败',
       convertError: '转换数字失败'
+    },
+    romanNumeral: {
+      title: '罗马数字转换器',
+      outputFormat: '输出格式',
+      formatArabic: '阿拉伯数字',
+      formatRoman: '罗马数字',
+      formatChineseLower: '中文小写',
+      formatChineseUpper: '中文大写',
+      formatChineseAmount: '中文金额',
+      formatEnglish: '英文数字',
+      input: '输入',
+      output: '输出',
+      inputPlaceholder: '输入阿拉伯数字或罗马数字...',
+      inputHint: '支持阿拉伯数字（最多15位）或罗马数字 (I, V, X, L, C, D, M)。罗马数字限制在 3999 以内',
+      clear: '清空',
+      invalidRange: '数字必须在 1 到 3999 之间',
+      invalidInput: '无效的输入。请输入阿拉伯数字或有效的罗马数字',
+      invalidArabic: '无效的阿拉伯数字。请输入正整数',
+      invalidRoman: '无效的罗马数字格式',
+      maxDigitsExceeded: '阿拉伯数字最多支持15位',
+      romanLimitExceeded: '罗马数字仅支持 1 到 3999 之间的数字',
+      convertError: '转换错误',
+      examples: '示例',
+      example: '示例'
     },
     textStats: {
       title: '文本统计',
