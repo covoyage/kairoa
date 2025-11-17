@@ -78,6 +78,11 @@
 - Generate human-readable descriptions
 - Display next execution times
 
+### 📄 PDF Signature Checker
+- Inspect PDF digital signatures locally
+- Validate CMS (PKCS#7) detached signatures
+- Display signer metadata, byte ranges, and certificate fields
+
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
 - Color preview
@@ -94,7 +99,7 @@
 - Export in PEM or DER format
 - Copy keys to clipboard
 
-## Interface
+## Interfacegit 
 
 - 🌓 **Light/Dark Theme**: Switch between light and dark modes
 - 🌍 **Internationalization**: Support for English and Chinese
