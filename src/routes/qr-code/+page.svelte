@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Download, Trash2 } from 'lucide-svelte';
+  import { Download, Trash2 } from 'lucide-svelte';
   import QRCode from 'qrcode';
   import { browser } from '$app/environment';
   
@@ -18,7 +18,6 @@
   let input = $state('');
   let qrCodeDataUrl = $state<string>('');
   let error = $state('');
-  let copied = $state(false);
   let isGenerating = $state(false);
   let qrSize = $state(256);
   let margin = $state(4);
@@ -86,24 +85,6 @@
     }
   });
 
-  async function copyQRCode() {
-    if (!qrCodeDataUrl) return;
-    
-    try {
-      const response = await fetch(qrCodeDataUrl);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ 'image/png': blob })
-      ]);
-      copied = true;
-      setTimeout(() => {
-        copied = false;
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  }
-
   async function downloadQRCode() {
     if (!qrCodeDataUrl) return;
     
@@ -161,7 +142,6 @@
     input = '';
     qrCodeDataUrl = '';
     error = '';
-    copied = false;
     successMessage = '';
   }
 </script>
@@ -297,18 +277,6 @@
               </div>
 
               <div class="flex gap-2">
-                <button
-                  onclick={copyQRCode}
-                  class="btn-secondary transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
-                >
-                  {#if copied}
-                    <Check class="w-4 h-4 inline mr-1" />
-                    {t('qrCode.copied')}
-                  {:else}
-                    <Copy class="w-4 h-4 inline mr-1" />
-                    {t('qrCode.copy')}
-                  {/if}
-                </button>
                 <button
                   onclick={downloadQRCode}
                   class="btn-secondary flex items-center gap-2"

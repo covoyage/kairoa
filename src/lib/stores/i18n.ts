@@ -712,6 +712,10 @@ const translations = {
       selectLogo: 'Select Logo',
       removeLogo: 'Remove',
       logoSize: 'Logo Size (%)',
+      invalidLogoType: 'Please select a valid image file',
+      saveSuccess: '✓ QR code saved successfully',
+      saveFailed: 'Failed to save QR code',
+      downloadStarted: '✓ Download started'
     },
     chmod: {
       title: 'Chmod Calculator',
@@ -808,12 +812,6 @@ const translations = {
       keyRequired: 'Key is required',
       messageRequired: 'Message is required',
       placeholder: 'Enter key and message to generate HMAC'
-    },
-    qrCode: {
-      invalidLogoType: 'Please select a valid image file',
-      saveSuccess: '✓ QR code saved successfully',
-      saveFailed: 'Failed to save QR code',
-      downloadStarted: '✓ Download started'
     }
   },
   zh: {
@@ -1525,6 +1523,9 @@ const translations = {
       removeLogo: '移除',
       logoSize: 'Logo 大小 (%)',
       invalidLogoType: '请选择有效的图片文件',
+      saveSuccess: '✓ 二维码保存成功',
+      saveFailed: '保存二维码失败',
+      downloadStarted: '✓ 下载已开始'
     },
     chmod: {
       title: 'Chmod 权限计算器',
@@ -1621,11 +1622,6 @@ const translations = {
       keyRequired: '密钥是必需的',
       messageRequired: '消息是必需的',
       placeholder: '输入密钥和消息以生成 HMAC'
-    },
-    qrCode: {
-      saveSuccess: '✓ 二维码保存成功',
-      saveFailed: '保存二维码失败',
-      downloadStarted: '✓ 下载已开始'
     }
   }
 };
