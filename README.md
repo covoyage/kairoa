@@ -175,7 +175,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+AGPL-3.0 License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 

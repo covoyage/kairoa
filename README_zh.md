@@ -175,7 +175,7 @@ npm run tauri dev
 
 ## 许可证
 
-Apache License 2.0 - 详情请参阅 [LICENSE](LICENSE) 文件。
+AGPL-3.0 License - 详情请参阅 [LICENSE](LICENSE) 文件。
 
 ## 致谢
 
