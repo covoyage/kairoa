@@ -7,7 +7,7 @@
   import LanguageIcon from '$lib/components/LanguageIcon.svelte';
 
   let translations = $derived($translationsStore);
-  let currentTheme = $state<'light' | 'dark'>(get(theme));
+  let currentTheme = $state<'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark'>(get(theme));
   let currentLocale = $state<'en' | 'zh'>(get(locale));
   let showThemeMenu = $state(false);
   let showLocaleMenu = $state(false);
@@ -52,9 +52,28 @@
     return unsubscribe;
   });
 
-  function setTheme(themeValue: 'light' | 'dark') {
+  function setTheme(themeValue: 'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark') {
     theme.set(themeValue);
     showThemeMenu = false;
+  }
+  
+  function getThemeLabel(themeValue: string): string {
+    switch (themeValue) {
+      case 'kairoa-light':
+        return t('settings.kairoaLight');
+      case 'kairoa-dark':
+        return t('settings.kairoaDark');
+      case 'solarized-light':
+        return t('settings.solarizedLight');
+      case 'solarized-dark':
+        return t('settings.solarizedDark');
+      default:
+        return themeValue;
+    }
+  }
+  
+  function getThemeIcon(themeValue: string) {
+    return themeValue.includes('dark') ? Moon : Sun;
   }
 
   function setLocale(localeValue: 'en' | 'zh') {
@@ -210,37 +229,59 @@
               onclick={() => showThemeMenu = !showThemeMenu}
               class="w-full max-w-xs flex items-center gap-3 px-4 py-3 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
             >
-              {#if currentTheme === 'light'}
-                <Sun class="w-5 h-5 text-gray-900 dark:text-gray-100" />
-              {:else}
+              {#if currentTheme.includes('dark')}
                 <Moon class="w-5 h-5 text-gray-900 dark:text-gray-100" />
+              {:else}
+                <Sun class="w-5 h-5 text-gray-900 dark:text-gray-100" />
               {/if}
               <span class="font-medium text-sm text-gray-900 dark:text-gray-100 flex-1 text-left">
-                {currentTheme === 'light' ? t('settings.lightMode') : t('settings.darkMode')}
+                {getThemeLabel(currentTheme)}
               </span>
             </button>
             
             {#if showThemeMenu}
               <div class="absolute top-full left-0 mt-2 w-full max-w-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden z-50">
-                {#if currentTheme !== 'light'}
+                {#if currentTheme !== 'kairoa-light'}
                   <button
-                    onclick={() => setTheme('light')}
+                    onclick={() => setTheme('kairoa-light')}
                     class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     <Sun class="w-5 h-5 text-gray-900 dark:text-gray-100" />
                     <span class="font-medium text-sm text-gray-900 dark:text-gray-100">
-                      {t('settings.lightMode')}
+                      {t('settings.kairoaLight')}
                     </span>
                   </button>
                 {/if}
-                {#if currentTheme !== 'dark'}
+                {#if currentTheme !== 'kairoa-dark'}
                   <button
-                    onclick={() => setTheme('dark')}
+                    onclick={() => setTheme('kairoa-dark')}
                     class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     <Moon class="w-5 h-5 text-gray-900 dark:text-gray-100" />
                     <span class="font-medium text-sm text-gray-900 dark:text-gray-100">
-                      {t('settings.darkMode')}
+                      {t('settings.kairoaDark')}
+                    </span>
+                  </button>
+                {/if}
+                {#if currentTheme !== 'solarized-light'}
+                  <button
+                    onclick={() => setTheme('solarized-light')}
+                    class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Sun class="w-5 h-5 text-gray-900 dark:text-gray-100" />
+                    <span class="font-medium text-sm text-gray-900 dark:text-gray-100">
+                      {t('settings.solarizedLight')}
+                    </span>
+                  </button>
+                {/if}
+                {#if currentTheme !== 'solarized-dark'}
+                  <button
+                    onclick={() => setTheme('solarized-dark')}
+                    class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Moon class="w-5 h-5 text-gray-900 dark:text-gray-100" />
+                    <span class="font-medium text-sm text-gray-900 dark:text-gray-100">
+                      {t('settings.solarizedDark')}
                     </span>
                   </button>
                 {/if}
