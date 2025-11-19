@@ -783,12 +783,68 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    use tauri::{Manager, Emitter};
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .setup(|app| {
+            // 监听 macOS 系统菜单事件
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder, MenuItemBuilder};
+                
+                // 创建自定义的 About 菜单项（而不是使用预定义的）
+                let about_item = MenuItemBuilder::with_id("about", "About Kairoa")
+                    .build(app)?;
+                
+                // 创建自定义应用子菜单
+                let app_submenu = SubmenuBuilder::new(app, "kairoa")
+                    .item(&about_item)  // 使用自定义的 About 菜单项
+                    .separator()
+                    .item(&PredefinedMenuItem::services(app, None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::hide(app, None)?)
+                    .item(&PredefinedMenuItem::hide_others(app, None)?)
+                    .item(&PredefinedMenuItem::show_all(app, None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::quit(app, None)?)
+                    .build()?;
+                
+                // 创建完整的菜单栏
+                let menu = MenuBuilder::new(app)
+                    .item(&app_submenu)
+                    .build()?;
+                
+                // 设置应用菜单
+                app.set_menu(menu)?;
+                
+                // 监听菜单事件
+                app.on_menu_event(move |app, event| {
+                    let event_id = event.id().as_ref();
+                    println!("Menu event received: {}", event_id); // 调试输出
+                    
+                    // 检查是否是 About 菜单项
+                    if event_id == "about" {
+                        println!("About menu clicked, emitting show-about event"); // 调试输出
+                        // 发送事件到前端显示自定义 About 对话框
+                        if let Some(window) = app.get_webview_window("main") {
+                            match window.emit("show-about", ()) {
+                                Ok(_) => println!("Event emitted successfully"),
+                                Err(e) => println!("Failed to emit event: {}", e),
+                            }
+                        } else {
+                            println!("Window not found");
+                        }
+                    }
+                });
+            }
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet, 
             http_request, 
