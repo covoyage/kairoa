@@ -4,10 +4,14 @@
   import { locale } from '$lib/stores/i18n';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import AboutDialog from '$lib/components/AboutDialog.svelte';
+  import UpdateDialog from '$lib/components/UpdateDialog.svelte';
+  import SettingsDialog from '$lib/components/SettingsDialog.svelte';
   import { browser } from '$app/environment';
   import '../app.css';
 
   let aboutDialog: any;
+  let updateDialog: any;
+  let settingsDialog: any;
 
   onMount(() => {
     theme.init();
@@ -23,6 +27,10 @@
     
     if (browser) {
       window.addEventListener('keydown', handleKeyDown);
+      
+      // 监听来自 Tauri 的设置事件（已在 SettingsDialog 组件中处理）
+      // 不再需要导航，直接显示对话框
+      
       return () => {
         window.removeEventListener('keydown', handleKeyDown);
       };
@@ -38,3 +46,5 @@
 </div>
 
 <AboutDialog bind:this={aboutDialog} />
+<UpdateDialog bind:this={updateDialog} />
+<SettingsDialog bind:this={settingsDialog} />

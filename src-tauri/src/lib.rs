@@ -801,9 +801,20 @@ pub fn run() {
                 let about_item = MenuItemBuilder::with_id("about", "About Kairoa")
                     .build(app)?;
                 
+                // 创建检查更新菜单项
+                let check_update_item = MenuItemBuilder::with_id("check_update", "Check for Updates...")
+                    .build(app)?;
+                
+                // 创建 Settings 菜单项
+                let settings_item = MenuItemBuilder::with_id("settings", "Settings...")
+                    .accelerator("Cmd+,")  // macOS 标准的设置快捷键
+                    .build(app)?;
+                
                 // 创建自定义应用子菜单
                 let app_submenu = SubmenuBuilder::new(app, "kairoa")
-                    .item(&about_item)  // 使用自定义的 About 菜单项
+                    .item(&about_item)  // About Kairoa
+                    .item(&check_update_item)  // Check for Updates...
+                    .item(&settings_item)  // Settings...
                     .separator()
                     .item(&PredefinedMenuItem::services(app, None)?)
                     .separator()
@@ -827,18 +838,33 @@ pub fn run() {
                     let event_id = event.id().as_ref();
                     println!("Menu event received: {}", event_id); // 调试输出
                     
-                    // 检查是否是 About 菜单项
-                    if event_id == "about" {
-                        println!("About menu clicked, emitting show-about event"); // 调试输出
-                        // 发送事件到前端显示自定义 About 对话框
-                        if let Some(window) = app.get_webview_window("main") {
-                            match window.emit("show-about", ()) {
-                                Ok(_) => println!("Event emitted successfully"),
-                                Err(e) => println!("Failed to emit event: {}", e),
+                    if let Some(window) = app.get_webview_window("main") {
+                        match event_id {
+                            "about" => {
+                                println!("About menu clicked, emitting show-about event");
+                                match window.emit("show-about", ()) {
+                                    Ok(_) => println!("Event emitted successfully"),
+                                    Err(e) => println!("Failed to emit event: {}", e),
+                                }
                             }
-                        } else {
-                            println!("Window not found");
+                            "check_update" => {
+                                println!("Check for Updates menu clicked");
+                                match window.emit("check-for-updates", ()) {
+                                    Ok(_) => println!("Check update event emitted successfully"),
+                                    Err(e) => println!("Failed to emit check update event: {}", e),
+                                }
+                            }
+                            "settings" => {
+                                println!("Settings menu clicked, showing settings dialog");
+                                match window.emit("show-settings", ()) {
+                                    Ok(_) => println!("Settings event emitted successfully"),
+                                    Err(e) => println!("Failed to emit settings event: {}", e),
+                                }
+                            }
+                            _ => {}
                         }
+                    } else {
+                        println!("Window not found");
                     }
                 });
             }
