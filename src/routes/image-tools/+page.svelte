@@ -113,15 +113,93 @@
       Promise.all([
         import('@tauri-apps/plugin-dialog'),
         import('@tauri-apps/plugin-fs'),
-        import('@tauri-apps/api/core')
-      ]).then(([dialogModule, fsModule, coreModule]) => {
+        import('@tauri-apps/api/core'),
+        import('@tauri-apps/api/event')
+      ]).then(([dialogModule, fsModule, coreModule, eventModule]) => {
         saveFn = dialogModule.save;
         writeFileFn = fsModule.writeFile;
         invokeFn = coreModule.invoke;
+        
+        // 监听 Tauri 文件拖放事件
+        eventModule.listen('tauri://drag-drop', (event: any) => {
+          console.log('Tauri drag-drop event:', event);
+          const paths = event.payload.paths as string[];
+          if (paths && paths.length > 0) {
+            handleTauriFileDrop(paths);
+          }
+        });
       }).catch((err) => {
         console.error('Failed to load Tauri APIs:', err);
         isTauriAvailable = false;
       });
+    }
+  }
+  
+  // 处理 Tauri 文件拖放
+  async function handleTauriFileDrop(paths: string[]) {
+    console.log('Handling Tauri file drop:', paths);
+    
+    // 使用 fetch 读取文件
+    try {
+      const path = paths[0];
+      const fileName = path.split('/').pop() || path.split('\\').pop() || 'file';
+      
+      // 使用 Tauri 的 fs 插件读取文件
+      if (invokeFn) {
+        const { readFile } = await import('@tauri-apps/plugin-fs');
+        const contents = await readFile(path);
+        
+        // 创建 File 对象
+        const blob = new Blob([contents]);
+        const file = new File([blob], fileName, { type: getFileType(fileName) });
+        
+        // 处理文件
+        handleFileObject(file);
+      }
+    } catch (err) {
+      console.error('Failed to read dropped file:', err);
+      error = 'Failed to read file';
+    }
+  }
+  
+  function getFileType(fileName: string): string {
+    const ext = fileName.toLowerCase().split('.').pop();
+    const types: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'pdf': 'application/pdf'
+    };
+    return types[ext || ''] || 'application/octet-stream';
+  }
+  
+  function handleFileObject(file: File) {
+    const fileName = file.name.toLowerCase();
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg', '.ico', '.tiff', '.tif'];
+    const isImageFile = file.type.startsWith('image/') || 
+                       imageExtensions.some(ext => fileName.endsWith(ext));
+    
+    if (!isImageFile && !(toolType === 'pdf-convert' && fileName.endsWith('.pdf'))) {
+      error = t('imageTools.invalidImageType');
+      return;
+    }
+    
+    imageFile = file;
+    error = '';
+    originalSize = file.size;
+    
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl);
+    }
+    imageUrl = URL.createObjectURL(file);
+    
+    if (processedImageUrl) {
+      URL.revokeObjectURL(processedImageUrl);
+      processedImageUrl = '';
     }
   }
   

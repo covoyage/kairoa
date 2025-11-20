@@ -82,8 +82,31 @@
 
     if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
       isTauriApp = true;
+      
+      // 监听 Tauri 文件拖放事件
+      import('@tauri-apps/api/event').then((eventModule) => {
+        eventModule.listen('tauri://drag-drop', async (event: any) => {
+          const paths = event.payload.paths as string[];
+          if (paths && paths.length > 0) {
+            await handleTauriFileDrop(paths[0]);
+          }
+        });
+      });
     }
   });
+  
+  async function handleTauriFileDrop(path: string) {
+    try {
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const contents = await readFile(path);
+      const fileName = path.split('/').pop() || path.split('\\').pop() || 'file.pdf';
+      const blob = new Blob([contents], { type: 'application/pdf' });
+      const file = new File([blob], fileName, { type: 'application/pdf' });
+      await loadPdfFile(file);
+    } catch (err) {
+      console.error('Failed to read dropped file:', err);
+    }
+  }
 
   function handleDragOver(event: DragEvent) {
     event.preventDefault();

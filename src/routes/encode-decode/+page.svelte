@@ -1,8 +1,9 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { Copy, Check, Trash2 } from 'lucide-svelte';
   import { page } from '$app/stores';
+  import { browser } from '$app/environment';
   
   type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html';
   
@@ -42,6 +43,44 @@
       value = value?.[k];
     }
     return value || key;
+  }
+  
+  onMount(() => {
+    if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      import('@tauri-apps/api/event').then((eventModule) => {
+        eventModule.listen('tauri://drag-drop', async (event: any) => {
+          const paths = event.payload.paths as string[];
+          if (paths && paths.length > 0 && encodeType === 'image-base64') {
+            await handleTauriFileDrop(paths[0]);
+          }
+        });
+      });
+    }
+  });
+  
+  async function handleTauriFileDrop(path: string) {
+    try {
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const contents = await readFile(path);
+      const fileName = path.split('/').pop() || path.split('\\').pop() || 'image';
+      const ext = fileName.split('.').pop()?.toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'bmp': 'image/bmp',
+        'svg': 'image/svg+xml'
+      };
+      const mimeType = mimeTypes[ext || ''] || 'image/jpeg';
+      const blob = new Blob([contents], { type: mimeType });
+      const file = new File([blob], fileName, { type: mimeType });
+      selectedImageFile = file;
+      handleImageFileSelect({ target: { files: [file] } } as any);
+    } catch (err) {
+      console.error('Failed to read dropped file:', err);
+    }
   }
 
   function encodeBase64() {

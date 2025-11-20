@@ -1,7 +1,8 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   import CryptoJS from 'crypto-js';
-  import { onDestroy } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
+  import { browser } from '$app/environment';
   
   type Algorithm = 'md5' | 'sha1' | 'sha224' | 'sha256' | 'sha384' | 'sha512' | 'ripemd160';
   type InputType = 'text' | 'file';
@@ -39,6 +40,34 @@
       value = value?.[k];
     }
     return value || key;
+  }
+
+  onMount(() => {
+    if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      import('@tauri-apps/api/event').then((eventModule) => {
+        eventModule.listen('tauri://drag-drop', async (event: any) => {
+          const paths = event.payload.paths as string[];
+          if (paths && paths.length > 0) {
+            await handleTauriFileDrop(paths[0]);
+          }
+        });
+      });
+    }
+  });
+  
+  async function handleTauriFileDrop(path: string) {
+    try {
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const contents = await readFile(path);
+      const fileName = path.split('/').pop() || path.split('\\').pop() || 'file';
+      const blob = new Blob([contents]);
+      const file = new File([blob], fileName);
+      selectedFile = file;
+      inputType = 'file';
+      calculateFileHashes(file);
+    } catch (err) {
+      console.error('Failed to read dropped file:', err);
+    }
   }
 
   function adjustTextareaHeight(textarea: HTMLTextAreaElement | null) {
