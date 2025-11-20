@@ -6,8 +6,8 @@
 
   let translations = $derived($translationsStore);
   let showDialog = $state(false);
-  let currentTheme = $state($theme);
-  let currentLocale = $state($locale);
+  let currentTheme = $state<'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark' | 'glass-light' | 'glass-dark'>($theme);
+  let currentLocale = $state<'en' | 'zh'>($locale);
 
   function t(key: string): string {
     const keys = key.split('.');
@@ -41,7 +41,7 @@
     showDialog = false;
   }
 
-  function setTheme(themeValue: 'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark') {
+  function setTheme(themeValue: 'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark' | 'glass-light' | 'glass-dark') {
     theme.set(themeValue);
   }
 
@@ -59,6 +59,10 @@
         return t('settings.solarizedLight');
       case 'solarized-dark':
         return t('settings.solarizedDark');
+      case 'glass-light':
+        return t('settings.glassLight');
+      case 'glass-dark':
+        return t('settings.glassDark');
       default:
         return themeValue;
     }
@@ -68,11 +72,13 @@
     return themeValue.includes('dark') ? Moon : Sun;
   }
 
-  const themes: Array<'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark'> = [
+  const themes: Array<'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark' | 'glass-light' | 'glass-dark'> = [
     'kairoa-light',
     'kairoa-dark',
     'solarized-light',
-    'solarized-dark'
+    'solarized-dark',
+    'glass-light',
+    'glass-dark'
   ];
 
   // 导出函数供外部调用
@@ -145,31 +151,22 @@
 
         <!-- Theme Section -->
         <div>
-          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+          <label for="theme-select" class="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
             <Palette class="w-4 h-4" />
             {t('settings.theme')}
-          </h3>
-          <div class="space-y-2">
+          </label>
+          <select
+            id="theme-select"
+            value={currentTheme}
+            onchange={(e) => setTheme(e.currentTarget.value as any)}
+            class="input mt-2"
+          >
             {#each themes as themeOption}
-              {@const ThemeIcon = getThemeIcon(themeOption)}
-              <button
-                onclick={() => setTheme(themeOption)}
-                class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors {currentTheme === themeOption
-                  ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}"
-              >
-                <div class="flex items-center gap-3">
-                  <ThemeIcon class="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {getThemeLabel(themeOption)}
-                  </span>
-                </div>
-                {#if currentTheme === themeOption}
-                  <Check class="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                {/if}
-              </button>
+              <option value={themeOption}>
+                {getThemeLabel(themeOption)}
+              </option>
             {/each}
-          </div>
+          </select>
         </div>
       </div>
     </div>

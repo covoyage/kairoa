@@ -1,9 +1,9 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-export type Theme = 'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark';
+export type Theme = 'kairoa-light' | 'kairoa-dark' | 'solarized-light' | 'solarized-dark' | 'glass-light' | 'glass-dark';
 
-const allThemes: Theme[] = ['kairoa-light', 'kairoa-dark', 'solarized-light', 'solarized-dark'];
+const allThemes: Theme[] = ['kairoa-light', 'kairoa-dark', 'solarized-light', 'solarized-dark', 'glass-light', 'glass-dark'];
 
 function createThemeStore() {
   const { subscribe, set, update } = writable<Theme>('kairoa-light');
@@ -19,7 +19,7 @@ function createThemeStore() {
         document.documentElement.classList.add(theme);
         
         // Also add 'dark' class for themes that are dark variants (for Tailwind compatibility)
-        if (theme === 'kairoa-dark' || theme === 'solarized-dark') {
+        if (theme === 'kairoa-dark' || theme === 'solarized-dark' || theme === 'glass-dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
@@ -39,7 +39,7 @@ function createThemeStore() {
         document.documentElement.classList.add(theme);
         
         // Also add 'dark' class for dark themes
-        if (theme === 'kairoa-dark' || theme === 'solarized-dark') {
+        if (theme === 'kairoa-dark' || theme === 'solarized-dark' || theme === 'glass-dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
@@ -59,7 +59,7 @@ function createThemeStore() {
           document.documentElement.classList.remove(...allThemes);
           document.documentElement.classList.add(newTheme);
           
-          if (newTheme === 'kairoa-dark' || newTheme === 'solarized-dark') {
+          if (newTheme === 'kairoa-dark' || newTheme === 'solarized-dark' || newTheme === 'glass-dark') {
             document.documentElement.classList.add('dark');
           } else {
             document.documentElement.classList.remove('dark');

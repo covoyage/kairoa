@@ -80,6 +80,82 @@
   .solarized-dark .text-gray-500 { color: var(--sol-base01) !important; }
   .solarized-dark .border-gray-700 { border-color: var(--sol-base02) !important; }
   .solarized-dark .border-gray-600 { border-color: var(--sol-base01) !important; }
+  
+  /* Glass Light Theme - Apple Frosted Glass */
+  .glass-light {
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-bg-secondary: rgba(249, 250, 251, 0.8);
+    --glass-border: rgba(229, 231, 235, 0.5);
+    --glass-text: #1f2937;
+    --glass-text-secondary: #6b7280;
+    
+    background: linear-gradient(135deg, #f0f9ff 0%, #fef3c7 100%);
+    color: var(--glass-text);
+  }
+  
+  .glass-light .bg-white { 
+    background-color: var(--glass-bg) !important; 
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .glass-light .bg-gray-50 { 
+    background-color: var(--glass-bg-secondary) !important; 
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .glass-light .bg-gray-100 { 
+    background-color: rgba(243, 244, 246, 0.6) !important; 
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glass-light .bg-gray-800 { 
+    background-color: rgba(255, 255, 255, 0.9) !important; 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-light .text-gray-900 { color: var(--glass-text) !important; }
+  .glass-light .text-gray-700 { color: #374151 !important; }
+  .glass-light .text-gray-600 { color: var(--glass-text-secondary) !important; }
+  .glass-light .border-gray-200 { border-color: var(--glass-border) !important; }
+  .glass-light .border-gray-300 { border-color: rgba(209, 213, 219, 0.5) !important; }
+  
+  /* Glass Dark Theme - Apple Frosted Glass Dark */
+  .glass-dark {
+    --glass-bg-dark: rgba(30, 30, 30, 0.7);
+    --glass-bg-secondary-dark: rgba(20, 20, 20, 0.8);
+    --glass-border-dark: rgba(55, 65, 81, 0.5);
+    --glass-text-dark: #f3f4f6;
+    --glass-text-secondary-dark: #9ca3af;
+    
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+    color: var(--glass-text-dark);
+  }
+  
+  .glass-dark .bg-gray-900 { 
+    background-color: var(--glass-bg-dark) !important; 
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .glass-dark .bg-gray-800 { 
+    background-color: var(--glass-bg-secondary-dark) !important; 
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .glass-dark .bg-gray-700 { 
+    background-color: rgba(55, 65, 81, 0.6) !important; 
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glass-dark .bg-gray-50 { 
+    background-color: rgba(40, 40, 40, 0.8) !important; 
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .glass-dark .text-gray-100 { color: var(--glass-text-dark) !important; }
+  .glass-dark .text-gray-300 { color: #d1d5db !important; }
+  .glass-dark .text-gray-400 { color: var(--glass-text-secondary-dark) !important; }
+  .glass-dark .border-gray-700 { border-color: var(--glass-border-dark) !important; }
+  .glass-dark .border-gray-600 { border-color: rgba(75, 85, 99, 0.5) !important; }
 
   body {
     @apply transition-colors duration-200;
