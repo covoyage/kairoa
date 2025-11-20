@@ -1,14 +1,28 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
   
+  import CryptoJS from 'crypto-js';
+  
   type GeneratorType = 'uuid' | 'ulid';
+  type UUIDVersion = 'v1' | 'v3' | 'v4' | 'v5';
   
   let generatorType = $state<GeneratorType>('uuid');
+  let uuidVersion = $state<UUIDVersion>('v4');
+  let namespaceName = $state('');
+  let customName = $state('');
   let count = $state(1);
   let uuids = $state<string[]>([]);
   let copiedUuids = $state<Set<number>>(new Set());
   let allCopied = $state(false);
   let includeHyphens = $state(true);
+  
+  // 预定义的命名空间
+  const NAMESPACES = {
+    DNS: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+    URL: '6ba7b811-9dad-11d1-80b4-00c04fd430c8',
+    OID: '6ba7b812-9dad-11d1-80b4-00c04fd430c8',
+    X500: '6ba7b814-9dad-11d1-80b4-00c04fd430c8',
+  };
 
   let translations = $derived($translationsStore);
 
@@ -78,13 +92,82 @@
     return timePart + randomPart;
   }
 
-  function generateUUID() {
+  function generateUUIDv1() {
+    // UUID v1: 基于时间戳和节点 ID
+    const now = Date.now();
+    const timestamp = now * 10000 + 122192928000000000; // Convert to 100-nanosecond intervals since 1582-10-15
+    
+    const timeLow = (timestamp & 0xffffffff).toString(16).padStart(8, '0');
+    const timeMid = ((timestamp / 0x100000000) & 0xffff).toString(16).padStart(4, '0');
+    const timeHi = (((timestamp / 0x1000000000000) & 0x0fff) | 0x1000).toString(16).padStart(4, '0');
+    
+    const clockSeq = ((Math.random() * 0x3fff) | 0x8000).toString(16).padStart(4, '0');
+    
+    // 生成随机节点 ID（6 字节）
+    const node = Array.from({ length: 6 }, () => 
+      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    ).join('');
+    
+    const uuid = `${timeLow}-${timeMid}-${timeHi}-${clockSeq}-${node}`;
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUIDv4() {
+    // UUID v4: 随机生成
     const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
     return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUIDv3(namespace: string, name: string) {
+    // UUID v3: 使用 MD5 哈希
+    const namespaceBytes = namespace.replace(/-/g, '');
+    const hash = CryptoJS.MD5(namespaceBytes + name).toString();
+    
+    const uuid = [
+      hash.substring(0, 8),
+      hash.substring(8, 12),
+      '3' + hash.substring(13, 16), // 版本号 3
+      ((parseInt(hash.substring(16, 18), 16) & 0x3f) | 0x80).toString(16) + hash.substring(18, 20),
+      hash.substring(20, 32)
+    ].join('-');
+    
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUIDv5(namespace: string, name: string) {
+    // UUID v5: 使用 SHA-1 哈希
+    const namespaceBytes = namespace.replace(/-/g, '');
+    const hash = CryptoJS.SHA1(namespaceBytes + name).toString();
+    
+    const uuid = [
+      hash.substring(0, 8),
+      hash.substring(8, 12),
+      '5' + hash.substring(13, 16), // 版本号 5
+      ((parseInt(hash.substring(16, 18), 16) & 0x3f) | 0x80).toString(16) + hash.substring(18, 20),
+      hash.substring(20, 32)
+    ].join('-');
+    
+    return includeHyphens ? uuid : uuid.replace(/-/g, '');
+  }
+
+  function generateUUID() {
+    if (uuidVersion === 'v1') {
+      return generateUUIDv1();
+    } else if (uuidVersion === 'v3') {
+      const namespace = namespaceName || NAMESPACES.DNS;
+      const name = customName || 'example.com';
+      return generateUUIDv3(namespace, name);
+    } else if (uuidVersion === 'v5') {
+      const namespace = namespaceName || NAMESPACES.DNS;
+      const name = customName || 'example.com';
+      return generateUUIDv5(namespace, name);
+    } else {
+      return generateUUIDv4();
+    }
   }
 
   function generate() {
@@ -182,6 +265,54 @@
       </div>
 
       {#if generatorType === 'uuid'}
+        <div>
+          <label for="uuid-version" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+            {t('uuid.version')}
+          </label>
+          <select
+            id="uuid-version"
+            bind:value={uuidVersion}
+            class="input w-48"
+          >
+            <option value="v1">{t('uuid.v1')}</option>
+            <option value="v3">{t('uuid.v3')}</option>
+            <option value="v4">{t('uuid.v4')}</option>
+            <option value="v5">{t('uuid.v5')}</option>
+          </select>
+        </div>
+        
+        {#if uuidVersion === 'v3' || uuidVersion === 'v5'}
+          <div>
+            <label for="namespace" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              {t('uuid.namespace')}
+            </label>
+            <select
+              id="namespace"
+              bind:value={namespaceName}
+              class="input"
+            >
+              <option value="">{t('uuid.namespaceDNS')}</option>
+              <option value={NAMESPACES.DNS}>{t('uuid.namespaceDNS')} - {NAMESPACES.DNS}</option>
+              <option value={NAMESPACES.URL}>{t('uuid.namespaceURL')} - {NAMESPACES.URL}</option>
+              <option value={NAMESPACES.OID}>{t('uuid.namespaceOID')} - {NAMESPACES.OID}</option>
+              <option value={NAMESPACES.X500}>{t('uuid.namespaceX500')} - {NAMESPACES.X500}</option>
+            </select>
+          </div>
+          
+          <div>
+            <label for="custom-name" class="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              {t('uuid.name')}
+            </label>
+            <input
+              id="custom-name"
+              type="text"
+              bind:value={customName}
+              placeholder={t('uuid.namePlaceholder')}
+              class="input"
+            />
+          </div>
+        {/if}
+        
         <div class="flex items-center">
           <input
             id="include-hyphens"

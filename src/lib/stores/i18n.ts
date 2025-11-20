@@ -225,7 +225,19 @@ const translations = {
       copyAll: 'Copy All',
       clear: 'Clear',
       count: 'Count',
-      includeHyphens: 'Include "-"'
+      includeHyphens: 'Include "-"',
+      version: 'Version',
+      namespace: 'Namespace',
+      name: 'Name',
+      namePlaceholder: 'Enter name (e.g., example.com)',
+      v1: 'v1 (Time-based)',
+      v3: 'v3 (MD5 Hash)',
+      v4: 'v4 (Random)',
+      v5: 'v5 (SHA-1 Hash)',
+      namespaceDNS: 'DNS (default)',
+      namespaceURL: 'URL',
+      namespaceOID: 'OID',
+      namespaceX500: 'X500'
     },
     common: {
       copy: 'Copy',
@@ -1101,7 +1113,19 @@ const translations = {
       copyAll: '复制全部',
       clear: '清空',
       count: '数量',
-      includeHyphens: '包含"-"'
+      includeHyphens: '包含"-"',
+      version: '版本',
+      namespace: '命名空间',
+      name: '名称',
+      namePlaceholder: '输入名称（如：example.com）',
+      v1: 'v1（基于时间）',
+      v3: 'v3（MD5 哈希）',
+      v4: 'v4（随机）',
+      v5: 'v5（SHA-1 哈希）',
+      namespaceDNS: 'DNS（默认）',
+      namespaceURL: 'URL',
+      namespaceOID: 'OID',
+      namespaceX500: 'X500'
     },
     common: {
       copy: '复制',
