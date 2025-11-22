@@ -525,65 +525,6 @@
         fsModule = module;
       }).catch(() => {});
     }
-    
-    // 添加全局键盘事件监听器，用于处理预览框内的全选
-    markdownSelectAllHandler = (e: KeyboardEvent) => {
-      // 检查是否按下了 Ctrl+A (Windows/Linux) 或 Cmd+A (Mac)
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
-        // 只在 markdown 视图时处理
-        if (activeView !== 'markdown' || !previewElement) {
-          return;
-        }
-        
-        const activeElement = document.activeElement as HTMLElement;
-        const target = e.target as HTMLElement;
-        
-        // 检查当前选中的内容是否在预览框内
-        const selection = window.getSelection();
-        const hasSelection = selection && selection.rangeCount > 0;
-        let selectionInPreview = false;
-        
-        if (hasSelection && selection) {
-          const range = selection.getRangeAt(0);
-          selectionInPreview = previewElement.contains(range.commonAncestorContainer as Node);
-        }
-        
-        // 检查焦点是否在预览框内（包括预览框本身和其子元素）
-        const focusInPreview = (
-          previewElement.contains(activeElement) || 
-          previewElement.contains(target) || 
-          previewElement === activeElement ||
-          previewElement === target ||
-          (markdownPreviewContainer && markdownPreviewContainer.contains(activeElement)) ||
-          (markdownPreviewContainer && markdownPreviewContainer.contains(target))
-        );
-        
-        // 如果焦点在预览框内，或者当前选中的内容在预览框内，则只选中预览框内容
-        if (focusInPreview || selectionInPreview) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          
-          // 选中预览框内的所有内容
-          const range = document.createRange();
-          range.selectNodeContents(previewElement);
-          const newSelection = window.getSelection();
-          if (newSelection) {
-            newSelection.removeAllRanges();
-            newSelection.addRange(range);
-          }
-        }
-      }
-    };
-    
-    // 使用捕获阶段来确保在默认行为之前处理
-    document.addEventListener('keydown', markdownSelectAllHandler, true);
-    
-    return () => {
-      if (markdownSelectAllHandler) {
-        document.removeEventListener('keydown', markdownSelectAllHandler, true);
-      }
-    };
   });
 
   // 检查 SVG 内容是否有效
@@ -606,7 +547,7 @@
       const href = token.href || '';
       const title = token.title || '';
       const text = token.text || '';
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer"${title ? ` title="${title}"` : ''}>${text}</a>`;
+      return `<a href="${href}"${title ? ` title="${title}"` : ''}>${text}</a>`;
     },
     image(token: any) {
       const href = token.href || '';
@@ -1539,11 +1480,29 @@
             </div>
             <div 
               class="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg overflow-auto bg-white dark:bg-gray-800 p-6 min-h-0"
+              tabindex="0"
               onclick={(e) => {
-                // 当点击预览框时，让预览框获得焦点，这样 Ctrl+A 就能正确检测
+                // 当点击预览框时，让预览框获得焦点
                 if (previewElement && e.target instanceof Node && previewElement.contains(e.target)) {
-                  previewElement.setAttribute('tabindex', '0');
-                  previewElement.focus();
+                  e.currentTarget.focus();
+                }
+              }}
+              onkeydown={(e) => {
+                // 只在预览框内处理 Ctrl+A / Cmd+A
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+                  if (previewElement && markdownContent.trim()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // 选中预览框内的所有内容
+                    const range = document.createRange();
+                    range.selectNodeContents(previewElement);
+                    const selection = window.getSelection();
+                    if (selection) {
+                      selection.removeAllRanges();
+                      selection.addRange(range);
+                    }
+                  }
                 }
               }}
             >

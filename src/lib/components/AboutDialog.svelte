@@ -40,19 +40,7 @@
     showDialog = false;
   }
 
-  async function openGitHub() {
-    if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      try {
-        const { openUrl } = await import('@tauri-apps/plugin-opener');
-        await openUrl('https://github.com/covoyage/kairoa');
-      } catch (error) {
-        console.error('Failed to open URL:', error);
-        window.open('https://github.com/covoyage/kairoa', '_blank');
-      }
-    } else {
-      window.open('https://github.com/covoyage/kairoa', '_blank');
-    }
-  }
+
 
   // 导出函数供外部调用
   export function show() {
@@ -100,8 +88,8 @@
       </div>
 
       <!-- GitHub Link - Centered -->
-      <button
-        onclick={openGitHub}
+      <a
+        href="https://github.com/covoyage/kairoa"
         class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-900 dark:bg-gray-700 hover:bg-gray-800 dark:hover:bg-gray-600 text-white rounded-lg transition-colors"
       >
         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -109,7 +97,7 @@
         </svg>
         <span>View on GitHub</span>
         <ExternalLink class="w-4 h-4" />
-      </button>
+      </a>
 
       <!-- License - Centered -->
       <div class="mt-4 text-center">

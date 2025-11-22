@@ -145,21 +145,7 @@
     }
   }
 
-  async function openReleaseUrl() {
-    if (updateInfo?.releaseUrl) {
-      if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-        try {
-          const { openUrl } = await import('@tauri-apps/plugin-opener');
-          await openUrl(updateInfo.releaseUrl);
-        } catch (error) {
-          console.error('Failed to open URL:', error);
-          window.open(updateInfo.releaseUrl, '_blank');
-        }
-      } else {
-        window.open(updateInfo.releaseUrl, '_blank');
-      }
-    }
-  }
+
 
   // 导出函数供外部调用
   export function show() {
@@ -297,13 +283,13 @@
             {#if updateInfo.available && !updateInfo.error}
               <div class="flex gap-3">
                 {#if updateInfo.releaseUrl}
-                  <button
-                    onclick={openReleaseUrl}
+                  <a
+                    href={updateInfo.releaseUrl}
                     class="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg transition-colors"
                   >
                     <span>{t('update.releaseNotes')}</span>
                     <ExternalLink class="w-4 h-4" />
-                  </button>
+                  </a>
                 {/if}
                 <button
                   onclick={installUpdate}
