@@ -37,6 +37,7 @@
   let fullscreenContainer = $state<HTMLElement | null>(null);
   let isTauri = $state(false);
   let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
+  let showCopyDropdown = $state(false);
   
   // 缩放相关状态
   let zoomLevel = $state(1.0);
@@ -170,6 +171,131 @@
       }, 2000);
     } catch (error) {
       console.error('Failed to copy HTML:', error);
+    }
+  }
+
+  // 复制为微信公众号格式（带内联样式）
+  async function copyForWechat() {
+    if (!markdownContent.trim() || !previewElement) return;
+    
+    // 克隆预览元素
+    const clone = previewElement.cloneNode(true) as HTMLElement;
+    
+    // 为微信公众号优化样式（内联样式）
+    const applyWechatStyles = (element: HTMLElement) => {
+      // 段落样式
+      element.querySelectorAll('p').forEach((p: HTMLElement) => {
+        p.style.cssText = 'margin: 1em 0; line-height: 1.75; font-size: 16px; color: #333;';
+      });
+      
+      // 标题样式
+      element.querySelectorAll('h1').forEach((h) => {
+        (h as HTMLElement).style.cssText = 'font-size: 28px; font-weight: bold; margin: 1.5em 0 0.5em; color: #000; border-bottom: 2px solid #000; padding-bottom: 0.3em;';
+      });
+      element.querySelectorAll('h2').forEach((h) => {
+        (h as HTMLElement).style.cssText = 'font-size: 24px; font-weight: bold; margin: 1.3em 0 0.5em; color: #000; border-bottom: 1px solid #ddd; padding-bottom: 0.3em;';
+      });
+      element.querySelectorAll('h3').forEach((h) => {
+        (h as HTMLElement).style.cssText = 'font-size: 20px; font-weight: bold; margin: 1.2em 0 0.5em; color: #333;';
+      });
+      element.querySelectorAll('h4, h5, h6').forEach((h) => {
+        (h as HTMLElement).style.cssText = 'font-size: 18px; font-weight: bold; margin: 1em 0 0.5em; color: #333;';
+      });
+      
+      // 代码块样式
+      element.querySelectorAll('pre').forEach((pre: HTMLElement) => {
+        pre.style.cssText = 'background: #f6f8fa; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 1em 0; border: 1px solid #e1e4e8;';
+      });
+      element.querySelectorAll('code').forEach((code: HTMLElement) => {
+        if (!code.parentElement || code.parentElement.tagName !== 'PRE') {
+          code.style.cssText = 'background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: Consolas, Monaco, monospace; font-size: 14px; color: #e83e8c;';
+        } else {
+          code.style.cssText = 'font-family: Consolas, Monaco, monospace; font-size: 14px; color: #24292e;';
+        }
+      });
+      
+      // 引用样式
+      element.querySelectorAll('blockquote').forEach((bq: HTMLElement) => {
+        bq.style.cssText = 'border-left: 4px solid #dfe2e5; padding-left: 16px; margin: 1em 0; color: #6a737d; font-style: italic;';
+      });
+      
+      // 列表样式
+      element.querySelectorAll('ul, ol').forEach((list) => {
+        (list as HTMLElement).style.cssText = 'margin: 1em 0; padding-left: 2em; line-height: 1.75;';
+      });
+      element.querySelectorAll('li').forEach((li: HTMLElement) => {
+        li.style.cssText = 'margin: 0.5em 0;';
+      });
+      
+      // 链接样式
+      element.querySelectorAll('a').forEach((a: HTMLElement) => {
+        a.style.cssText = 'color: #0366d6; text-decoration: none; border-bottom: 1px solid #0366d6;';
+      });
+      
+      // 图片样式
+      element.querySelectorAll('img').forEach((img: HTMLElement) => {
+        img.style.cssText = 'max-width: 100%; height: auto; display: block; margin: 1em auto; border-radius: 4px;';
+      });
+      
+      // 表格样式
+      element.querySelectorAll('table').forEach((table) => {
+        (table as HTMLElement).style.cssText = 'border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 14px;';
+      });
+      element.querySelectorAll('th, td').forEach((cell) => {
+        (cell as HTMLElement).style.cssText = 'border: 1px solid #dfe2e5; padding: 8px 12px; text-align: left;';
+      });
+      element.querySelectorAll('th').forEach((th) => {
+        (th as HTMLElement).style.cssText += ' background: #f6f8fa; font-weight: bold;';
+      });
+      
+      // 分隔线样式
+      element.querySelectorAll('hr').forEach((hr: HTMLElement) => {
+        hr.style.cssText = 'border: none; border-top: 2px solid #eaecef; margin: 2em 0;';
+      });
+      
+      // 强调样式
+      element.querySelectorAll('strong, b').forEach((el) => {
+        (el as HTMLElement).style.cssText = 'font-weight: bold; color: #000;';
+      });
+      element.querySelectorAll('em, i').forEach((el) => {
+        (el as HTMLElement).style.cssText = 'font-style: italic; color: #333;';
+      });
+    };
+    
+    applyWechatStyles(clone);
+    const html = clone.innerHTML;
+    const plain = clone.innerText || clone.textContent || '';
+    
+    try {
+      const supportsWrite = typeof navigator.clipboard?.write === 'function';
+      if (supportsWrite) {
+        const item = new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([plain], { type: 'text/plain' })
+        });
+        await navigator.clipboard.write([item]);
+      } else {
+        const temp = document.createElement('div');
+        temp.style.position = 'fixed';
+        temp.style.left = '-9999px';
+        temp.style.top = '0';
+        temp.contentEditable = 'true';
+        temp.innerHTML = html;
+        document.body.appendChild(temp);
+        const range = document.createRange();
+        range.selectNodeContents(temp);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+      }
+      copied = { ...copied, preview: true };
+      setTimeout(() => {
+        copied = { ...copied, preview: false };
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy for Wechat:', error);
     }
   }
 
@@ -1426,19 +1552,49 @@
               {t('common.clear')}
             </button>
           </div>
-          <button
-            onclick={copyPreviewContent}
-            class="btn-secondary text-sm transition-all duration-200 {copied.preview ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
-            disabled={!markdownContent.trim()}
-          >
-            {#if copied.preview}
-              <Check class="w-4 h-4 inline mr-1" />
-              {t('common.copied')}
-            {:else}
-              <Copy class="w-4 h-4 inline mr-1" />
-              {t('common.copy')}
+          <div class="relative">
+            <button
+              onclick={() => showCopyDropdown = !showCopyDropdown}
+              class="btn-secondary text-sm transition-all duration-200 {copied.preview ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+              disabled={!markdownContent.trim()}
+            >
+              {#if copied.preview}
+                <Check class="w-4 h-4 inline mr-1" />
+                {t('common.copied')}
+              {:else}
+                <Copy class="w-4 h-4 inline mr-1" />
+                {t('common.copy')}
+              {/if}
+              <svg class="w-3 h-3 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+              </svg>
+            </button>
+            
+            {#if showCopyDropdown}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div 
+                class="fixed inset-0 z-10" 
+                onclick={() => showCopyDropdown = false}
+              ></div>
+              <div class="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                <button
+                  onclick={() => { copyPreviewContent(); showCopyDropdown = false; }}
+                  class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-lg transition-colors"
+                >
+                  <Copy class="w-4 h-4 inline mr-2" />
+                  {t('previewer.copyWithStyle')}
+                </button>
+                <button
+                  onclick={() => { copyForWechat(); showCopyDropdown = false; }}
+                  class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-lg transition-colors"
+                >
+                  <Copy class="w-4 h-4 inline mr-2" />
+                  {t('previewer.copyForWechat')}
+                </button>
+              </div>
             {/if}
-          </button>
+          </div>
         </div>
         
         <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">

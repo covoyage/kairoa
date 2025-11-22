@@ -661,7 +661,9 @@ const translations = {
       selectFile: 'Select File',
       exportImage: 'Export as Image',
       fullscreen: 'Fullscreen',
-      exitFullscreen: 'Exit Fullscreen'
+      exitFullscreen: 'Exit Fullscreen',
+      copyWithStyle: 'Copy (with style)',
+      copyForWechat: 'Copy for WeChat Official Account'
     },
     apiClient: {
       urlPlaceholder: 'Enter API URL...',
@@ -1549,7 +1551,9 @@ const translations = {
       selectFile: '选择文件',
       exportImage: '导出为图片',
       fullscreen: '全屏',
-      exitFullscreen: '退出全屏'
+      exitFullscreen: '退出全屏',
+      copyWithStyle: '复制（带样式）',
+      copyForWechat: '复制微信公众号格式'
     },
     apiClient: {
       urlPlaceholder: '输入 API URL...',
