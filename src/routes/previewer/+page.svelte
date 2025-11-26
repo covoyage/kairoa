@@ -1,10 +1,11 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Trash2, FileImage, FileText, GitBranch, Download, Maximize, Minimize } from 'lucide-svelte';
+  import { Copy, Check, Trash2, FileImage, FileText, GitBranch, Download, Maximize, Minimize, FileDown, Loader2 } from 'lucide-svelte';
   import { marked, type RendererObject } from 'marked';
   import mermaid from 'mermaid';
   import { onMount } from 'svelte';
   import html2canvas from 'html2canvas';
+  import { jsPDF } from 'jspdf';
   import { browser } from '$app/environment';
   import { page } from '$app/stores';
   
@@ -38,6 +39,7 @@
   let isTauri = $state(false);
   let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
   let showCopyDropdown = $state(false);
+  let isExporting = $state(false); // 导出状态
   
   // 缩放相关状态
   let zoomLevel = $state(1.0);
@@ -494,6 +496,7 @@
       return;
     }
 
+    isExporting = true;
     try {
       // 使用 html2canvas 将元素转换为 canvas
       const canvas = await html2canvas(elementToExport, {
@@ -530,7 +533,7 @@
           }
           
           const filePath = await save({
-            defaultPath: `${filename}-${Date.now()}.png`,
+            defaultPath: `Kairoa-${filename}-${Date.now()}.png`,
             filters: [{
               name: 'PNG Image',
               extensions: ['png']
@@ -617,7 +620,7 @@
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `${filename}-${Date.now()}.png`;
+          link.download = `Kairoa-${filename}-${Date.now()}.png`;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -627,6 +630,213 @@
     } catch (error) {
       console.error('Export error:', error);
       alert('Failed to export image. Please try again.');
+    } finally {
+      isExporting = false;
+    }
+  }
+
+  // 导出 Markdown 预览为 PDF
+  async function exportMarkdownAsPdf() {
+    if (!previewElement || !markdownContent.trim()) {
+      alert('No Markdown content to export.');
+      return;
+    }
+
+    isExporting = true;
+    try {
+      // 创建一个临时的全宽容器来渲染内容，确保格式正确
+      // A4 内容宽度约 190mm，在 96 DPI 下约为 720px，我们使用 800px 以确保有足够空间
+      const contentWidthPx = 800;
+      
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      tempContainer.style.width = `${contentWidthPx}px`;
+      tempContainer.style.backgroundColor = '#ffffff';
+      tempContainer.style.padding = '24px';
+      tempContainer.style.boxSizing = 'border-box';
+      
+      // 克隆预览元素及其所有子元素
+      const clonedElement = previewElement.cloneNode(true) as HTMLElement;
+      
+      // 确保克隆的元素有正确的样式
+      clonedElement.style.width = '100%';
+      clonedElement.style.maxWidth = '100%';
+      clonedElement.style.margin = '0';
+      clonedElement.style.padding = '0';
+      
+      // 确保 markdown-content 内的样式正确
+      const markdownContentEl = clonedElement.querySelector('.markdown-content');
+      if (markdownContentEl) {
+        (markdownContentEl as HTMLElement).style.width = '100%';
+        (markdownContentEl as HTMLElement).style.maxWidth = '100%';
+      }
+      
+      // 添加到临时容器
+      tempContainer.appendChild(clonedElement);
+      document.body.appendChild(tempContainer);
+      
+      // 等待内容渲染和样式应用
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // 使用 html2canvas 将预览内容转换为 canvas
+      // 提高 scale 以获得更高清晰度（PDF 需要高分辨率）
+      const canvas = await html2canvas(tempContainer, {
+        backgroundColor: '#ffffff',
+        scale: 3, // 提高分辨率到 3 倍
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        width: tempContainer.scrollWidth,
+        height: tempContainer.scrollHeight,
+        windowWidth: tempContainer.scrollWidth,
+        windowHeight: tempContainer.scrollHeight
+      });
+
+      // 清理临时容器
+      document.body.removeChild(tempContainer);
+
+      // A4 尺寸（毫米）
+      const a4WidthMm = 210;
+      const a4HeightMm = 297;
+      const marginMm = 10; // 边距
+      const contentWidthMm = a4WidthMm - marginMm * 2;
+      const contentHeightMm = a4HeightMm - marginMm * 2;
+
+      // 创建 PDF（使用毫米单位）
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true // 启用压缩但保持质量
+      });
+
+      // 计算图片尺寸和缩放比例
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      
+      // 使用更高的 DPI 进行计算（300 DPI 用于高质量打印）
+      // 1mm = 11.81px at 300 DPI, 但我们的 canvas 是 96 DPI * scale
+      // 所以需要正确转换：canvas 的像素 / scale = 原始像素
+      const scale = 3; // 与 html2canvas 的 scale 保持一致
+      const originalPxPerMm = 96 / 25.4; // 96 DPI 下的像素/毫米
+      const scaledPxPerMm = originalPxPerMm * scale; // scale 倍后的像素/毫米
+      
+      // 计算缩放比例，使图片宽度适应内容区域（留边距）
+      const imgWidthInMm = imgWidth / scaledPxPerMm;
+      const widthRatio = contentWidthMm / imgWidthInMm;
+      const imgWidthInPdf = contentWidthMm;
+      const imgHeightInPdf = (imgHeight / scaledPxPerMm) * widthRatio;
+
+      // 分页处理
+      const pageContentHeight = contentHeightMm;
+      let sourceY = 0; // 源图片的 Y 位置（像素）
+      let remainingHeight = imgHeightInPdf; // 剩余高度（毫米）
+
+      while (remainingHeight > 0) {
+        // 如果不是第一页，添加新页面
+        if (sourceY > 0) {
+          pdf.addPage();
+        }
+
+        // 计算这一页要显示的高度
+        const pageHeight = Math.min(pageContentHeight, remainingHeight);
+        
+        // 计算源图片中要裁剪的区域（像素）
+        const sourceHeightPx = (pageHeight / imgHeightInPdf) * imgHeight;
+        
+        // 创建临时 canvas 来裁剪图片
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = imgWidth;
+        tempCanvas.height = Math.ceil(sourceHeightPx);
+        const tempCtx = tempCanvas.getContext('2d');
+        if (tempCtx) {
+          tempCtx.fillStyle = '#ffffff';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.drawImage(
+            canvas,
+            0, sourceY, imgWidth, sourceHeightPx, // 源区域
+            0, 0, imgWidth, sourceHeightPx // 目标区域
+          );
+        }
+
+        // 将裁剪后的图片添加到 PDF（添加边距）
+        // 使用 PNG 格式和高质量压缩，确保清晰度
+        pdf.addImage(
+          tempCanvas.toDataURL('image/png', 1.0), // 使用最高质量
+          'PNG',
+          marginMm,
+          marginMm,
+          imgWidthInPdf,
+          pageHeight,
+          undefined,
+          'FAST' // 快速渲染模式
+        );
+
+        // 更新位置
+        sourceY += sourceHeightPx;
+        remainingHeight -= pageHeight;
+      }
+
+      // 检查是否在 Tauri 环境中
+      const isTauri = browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+      if (isTauri) {
+        // Tauri 环境：使用 dialog 和 fs API
+        try {
+          if (!dialogModule) {
+            dialogModule = await import('@tauri-apps/plugin-dialog');
+          }
+          if (!fsModule) {
+            fsModule = await import('@tauri-apps/plugin-fs');
+          }
+
+          if (!dialogModule || !fsModule) {
+            throw new Error('Failed to load Tauri plugins');
+          }
+
+          const { save } = dialogModule;
+          if (!save || typeof save !== 'function') {
+            throw new Error('save function not found in dialog module');
+          }
+
+          const filePath = await save({
+            defaultPath: `Kairoa-markdown-preview-${Date.now()}.pdf`,
+            filters: [{
+              name: 'PDF Document',
+              extensions: ['pdf']
+            }]
+          });
+
+          if (!filePath) {
+            return;
+          }
+
+          // 获取 PDF 的二进制数据
+          const pdfData = pdf.output('arraybuffer');
+          const uint8Array = new Uint8Array(pdfData);
+
+          const { writeFile } = fsModule;
+          if (!writeFile || typeof writeFile !== 'function') {
+            throw new Error('writeFile function not found in fs module');
+          }
+
+          await writeFile(filePath, uint8Array);
+        } catch (error) {
+          console.error('Tauri export error:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          alert(`Failed to export PDF: ${errorMessage}`);
+        }
+      } else {
+        // 浏览器环境：直接下载
+        pdf.save(`Kairoa-markdown-preview-${Date.now()}.pdf`);
+      }
+    } catch (error) {
+      console.error('Export PDF error:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      isExporting = false;
     }
   }
 
@@ -1445,10 +1655,15 @@
             <button
               onclick={exportPreviewAsImage}
               class="btn-secondary text-sm"
-              disabled={!svgContent.trim() || !isValidSVG(svgContent)}
+              disabled={!svgContent.trim() || !isValidSVG(svgContent) || isExporting}
             >
-              <Download class="w-4 h-4 inline mr-1" />
-              {t('previewer.exportImage')}
+              {#if isExporting}
+                <Loader2 class="w-4 h-4 inline mr-1 animate-spin" />
+                {t('previewer.exporting')}
+              {:else}
+                <Download class="w-4 h-4 inline mr-1" />
+                {t('previewer.exportImage')}
+              {/if}
             </button>
             <button
               onclick={clear}
@@ -1489,17 +1704,23 @@
                     {t('previewer.invalidSVG')}
                   </span>
                 {/if}
-                <button
-                  onclick={() => toggleFullscreen(svgPreviewContainer)}
-                  class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
-                  title={isElementFullscreen(svgPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
-                >
-                  {#if isElementFullscreen(svgPreviewContainer)}
-                    <Minimize class="w-3.5 h-3.5" />
-                  {:else}
-                    <Maximize class="w-3.5 h-3.5" />
-                  {/if}
-                </button>
+                <div class="relative group">
+                  <button
+                    onclick={() => toggleFullscreen(svgPreviewContainer)}
+                    class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
+                    type="button"
+                  >
+                    {#if isElementFullscreen(svgPreviewContainer)}
+                      <Minimize class="w-3.5 h-3.5" />
+                    {:else}
+                      <Maximize class="w-3.5 h-3.5" />
+                    {/if}
+                  </button>
+                  <div class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    {isElementFullscreen(svgPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
+                    <div class="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                  </div>
+                </div>
                 <!-- 使用 fullscreenUpdateTrigger 来触发响应式更新 -->
                 <span class="hidden">{fullscreenUpdateTrigger}</span>
               </div>
@@ -1620,17 +1841,45 @@
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
               </div>
-              <button
-                onclick={() => toggleFullscreen(markdownPreviewContainer)}
-                class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
-                title={isElementFullscreen(markdownPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
-              >
-                {#if isElementFullscreen(markdownPreviewContainer)}
-                  <Minimize class="w-3.5 h-3.5" />
-                {:else}
-                  <Maximize class="w-3.5 h-3.5" />
+              <div class="flex items-center gap-1">
+                {#if markdownContent.trim()}
+                  <div class="relative group">
+                    <button
+                      onclick={exportMarkdownAsPdf}
+                      disabled={isExporting}
+                      class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      type="button"
+                    >
+                      {#if isExporting}
+                        <Loader2 class="w-3.5 h-3.5 animate-spin" />
+                      {:else}
+                        <FileDown class="w-3.5 h-3.5" />
+                      {/if}
+                    </button>
+                    <div class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                      {isExporting ? t('previewer.exporting') : t('previewer.exportPdf')}
+                      <div class="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                    </div>
+                  </div>
                 {/if}
-              </button>
+                <div class="relative group">
+                  <button
+                    onclick={() => toggleFullscreen(markdownPreviewContainer)}
+                    class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
+                    type="button"
+                  >
+                    {#if isElementFullscreen(markdownPreviewContainer)}
+                      <Minimize class="w-3.5 h-3.5" />
+                    {:else}
+                      <Maximize class="w-3.5 h-3.5" />
+                    {/if}
+                  </button>
+                  <div class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                    {isElementFullscreen(markdownPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
+                    <div class="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                  </div>
+                </div>
+              </div>
               <!-- 使用 fullscreenUpdateTrigger 来触发响应式更新 -->
               <span class="hidden">{fullscreenUpdateTrigger}</span>
             </div>
@@ -1712,10 +1961,15 @@
             <button
               onclick={exportPreviewAsImage}
               class="btn-secondary text-sm"
-              disabled={!mermaidContent.trim()}
+              disabled={!mermaidContent.trim() || isExporting}
             >
-              <Download class="w-4 h-4 inline mr-1" />
-              {t('previewer.exportImage')}
+              {#if isExporting}
+                <Loader2 class="w-4 h-4 inline mr-1 animate-spin" />
+                {t('previewer.exporting')}
+              {:else}
+                <Download class="w-4 h-4 inline mr-1" />
+                {t('previewer.exportImage')}
+              {/if}
             </button>
             <button
               onclick={clear}
@@ -1750,17 +2004,23 @@
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
               </div>
-              <button
-                onclick={() => toggleFullscreen(mermaidPreviewContainer)}
-                class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
-                title={isElementFullscreen(mermaidPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
-              >
-                {#if isElementFullscreen(mermaidPreviewContainer)}
-                  <Minimize class="w-3.5 h-3.5" />
-                {:else}
-                  <Maximize class="w-3.5 h-3.5" />
-                {/if}
-              </button>
+              <div class="relative group">
+                <button
+                  onclick={() => toggleFullscreen(mermaidPreviewContainer)}
+                  class="p-0.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded transition-colors"
+                  type="button"
+                >
+                  {#if isElementFullscreen(mermaidPreviewContainer)}
+                    <Minimize class="w-3.5 h-3.5" />
+                  {:else}
+                    <Maximize class="w-3.5 h-3.5" />
+                  {/if}
+                </button>
+                <div class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                  {isElementFullscreen(mermaidPreviewContainer) ? t('previewer.exitFullscreen') : t('previewer.fullscreen')}
+                  <div class="absolute top-full right-2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                </div>
+              </div>
               <!-- 使用 fullscreenUpdateTrigger 来触发响应式更新 -->
               <span class="hidden">{fullscreenUpdateTrigger}</span>
             </div>
