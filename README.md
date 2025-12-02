@@ -98,8 +98,7 @@
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, RGBA, HSL, HSLA
 - Color preview
-- Bidirectional conversion between any supported formats
-
+- Bidirectional conversion between any supported format
 ### 🔢 Base Converter
 - Convert between number bases: Binary (2), Octal (8), Decimal (10), Hexadecimal (16)
 - Automatic prefix detection and removal (0b, 0o, 0x)
