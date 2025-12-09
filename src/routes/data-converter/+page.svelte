@@ -24,8 +24,10 @@
   let error = $state('');
   let copied = $state(false);
   let isConverting = $state(false);
+  let isImporting = $state(false);
   let dialogModule: typeof import('@tauri-apps/plugin-dialog') | null = null;
   let fsModule: typeof import('@tauri-apps/plugin-fs') | null = null;
+  let fileInput: HTMLInputElement | null = null;
 
   function getDelimiterChar(): string | undefined {
     switch (delimiter) {
@@ -144,6 +146,84 @@
     copied = false;
   }
 
+  function getFileAccept() {
+    return mode === 'csv2json' ? '.csv,text/csv' : '.json,application/json';
+  }
+
+  function handleFileChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const acceptCsv = mode === 'csv2json';
+    const isCsv = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+    const isJson = file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
+    if ((acceptCsv && !isCsv) || (!acceptCsv && !isJson)) {
+      error = t('dataConverter.importUnsupported');
+      target.value = '';
+      return;
+    }
+
+    isImporting = true;
+    const reader = new FileReader();
+    reader.onload = () => {
+      inputText = String(reader.result || '');
+      error = '';
+      copied = false;
+      target.value = '';
+      isImporting = false;
+    };
+    reader.onerror = () => {
+      error = t('dataConverter.importError');
+      target.value = '';
+      isImporting = false;
+    };
+    reader.readAsText(file);
+  }
+
+  async function importFile() {
+    const isTauri = browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    if (isTauri) {
+      try {
+        isImporting = true;
+        if (!dialogModule) dialogModule = await import('@tauri-apps/plugin-dialog');
+        if (!fsModule) fsModule = await import('@tauri-apps/plugin-fs');
+        if (!dialogModule || !fsModule) throw new Error('Failed to load Tauri plugins');
+
+        const { open } = dialogModule;
+        const { readFile } = fsModule;
+        if (!open) throw new Error('open not found in dialog module');
+        if (!readFile) throw new Error('readFile not found in fs module');
+
+        const selected = await open({
+          multiple: false,
+          filters: mode === 'csv2json'
+            ? [{ name: 'CSV File', extensions: ['csv'] }]
+            : [{ name: 'JSON File', extensions: ['json'] }]
+        });
+
+        const filePath = Array.isArray(selected) ? selected[0] : selected;
+        if (!filePath) {
+          isImporting = false;
+          return;
+        }
+
+        const data = await readFile(filePath);
+        const content = new TextDecoder().decode(data);
+        inputText = content;
+        error = '';
+        copied = false;
+      } catch (err) {
+        console.error('Import file failed:', err);
+        error = t('dataConverter.importError');
+      } finally {
+        isImporting = false;
+      }
+    } else {
+      fileInput?.click();
+    }
+  }
+
   async function exportCsv() {
     if (!outputText || mode !== 'json2csv') return;
     const isTauri = browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -221,6 +301,15 @@
           </div>
         </div>
         <div class="flex items-center gap-2">
+          <button class="btn-secondary text-sm" onclick={importFile} disabled={isImporting}>
+            {#if isImporting}
+              <RefreshCw class="w-4 h-4 inline mr-1 animate-spin" />
+              {t('dataConverter.importing')}
+            {:else}
+              <FileSpreadsheet class="w-4 h-4 inline mr-1" />
+              {t('dataConverter.importFile')}
+            {/if}
+          </button>
           {#if outputText}
             {#if mode === 'json2csv'}
               <button class="btn-secondary text-sm" onclick={exportCsv}>
@@ -261,6 +350,13 @@
             placeholder={getInputPlaceholder()}
             spellcheck="false"
           ></textarea>
+          <input
+            bind:this={fileInput}
+            type="file"
+            accept={getFileAccept()}
+            class="hidden"
+            onchange={handleFileChange}
+          />
         </div>
 
         <div class="flex flex-col h-full">
