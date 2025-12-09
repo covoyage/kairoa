@@ -114,7 +114,7 @@
   ].sort();
   
   // 确保当前时区在列表中（通常在列表中，但为了保险）
-  const availableTimezones = $derived.by(() => {
+  const availableTimezones = $derived(() => {
     const tz = timezone;
     if (!timezones.includes(tz)) {
       return [tz, ...timezones];
@@ -123,33 +123,35 @@
   });
 
   // 过滤时区列表
-  const filteredTimezonesTimestamp = $derived.by(() => {
+  const filteredTimezonesTimestamp = $derived(() => {
+    const tzList = availableTimezones;
     const search = timezoneSearchTimestamp;
     if (!search || !search.trim()) {
       // 没有搜索时，也滚动到当前选中的时区
       if (timezoneOpenTimestamp) {
         setTimeout(() => scrollToMatchedTimezone('timestamp'), 100);
       }
-      return availableTimezones;
+      return tzList || [];
     }
     const lowerSearch = search.toLowerCase();
-    const filtered = availableTimezones.filter(tz => tz.toLowerCase().includes(lowerSearch));
+    const filtered = (tzList || []).filter(tz => tz.toLowerCase().includes(lowerSearch));
     // 搜索时自动滚动到匹配项
     setTimeout(() => scrollToMatchedTimezone('timestamp'), 100);
     return filtered;
   });
 
-  const filteredTimezonesDate = $derived.by(() => {
+  const filteredTimezonesDate = $derived(() => {
+    const tzList = availableTimezones;
     const search = timezoneSearchDate;
     if (!search || !search.trim()) {
       // 没有搜索时，也滚动到当前选中的时区
       if (timezoneOpenDate) {
         setTimeout(() => scrollToMatchedTimezone('date'), 100);
       }
-      return availableTimezones;
+      return tzList || [];
     }
     const lowerSearch = search.toLowerCase();
-    const filtered = availableTimezones.filter(tz => tz.toLowerCase().includes(lowerSearch));
+    const filtered = (tzList || []).filter(tz => tz.toLowerCase().includes(lowerSearch));
     // 搜索时自动滚动到匹配项
     setTimeout(() => scrollToMatchedTimezone('date'), 100);
     return filtered;
@@ -199,7 +201,7 @@
       }
       
       if (targetButton) {
-        targetButton.scrollIntoView({ block: 'center', behavior: 'auto' });
+        targetButton.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       }
     }, 100);
   }
@@ -517,9 +519,9 @@
                 <ChevronDown class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform {timezoneOpenTimestamp ? 'rotate-180' : ''}" />
               </button>
               {#if timezoneOpenTimestamp}
-                <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden flex flex-col" style="max-height: 300px;">
+                <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 flex flex-col">
                   <!-- 搜索框 -->
-                  <div class="p-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div class="p-2 border-b border-gray-200 dark:border-gray-700">
                     <div class="relative">
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search class="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -548,7 +550,7 @@
                     </div>
                   </div>
                   <!-- 时区列表 -->
-                  <div class="overflow-y-auto flex-1 timezone-dropdown">
+                  <div class="overflow-auto flex-1 timezone-dropdown" style="min-height: 200px;">
                     {#if filteredTimezonesTimestamp && filteredTimezonesTimestamp.length > 0}
                       {#each filteredTimezonesTimestamp as tz}
                         <button
@@ -561,7 +563,7 @@
                       {/each}
                     {:else}
                       <div class="px-4 py-2 text-gray-500 dark:text-gray-400 text-sm">
-                        {t('time.noTimezoneFound')}
+                        {t('time.noTimezoneFound')} ({filteredTimezonesTimestamp?.length || 0})
                       </div>
                     {/if}
                   </div>
@@ -605,9 +607,9 @@
                 <ChevronDown class="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 transition-transform {timezoneOpenDate ? 'rotate-180' : ''}" />
               </button>
               {#if timezoneOpenDate}
-                <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden flex flex-col" style="max-height: 300px;">
+                <div class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 flex flex-col">
                   <!-- 搜索框 -->
-                  <div class="p-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div class="p-2 border-b border-gray-200 dark:border-gray-700">
                     <div class="relative">
                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Search class="w-4 h-4 text-gray-400 dark:text-gray-500" />
@@ -636,7 +638,7 @@
                     </div>
                   </div>
                   <!-- 时区列表 -->
-                  <div class="overflow-y-auto flex-1 timezone-dropdown">
+                  <div class="overflow-auto flex-1 timezone-dropdown">
                     {#if filteredTimezonesDate.length > 0}
                       {#each filteredTimezonesDate as tz}
                         <button

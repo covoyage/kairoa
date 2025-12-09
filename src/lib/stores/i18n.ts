@@ -38,7 +38,8 @@ const translations = {
       romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers',
       regexTesterDesc: 'Test and debug regular expressions with real-time matching',
       sqlFormatterDesc: 'Format and beautify SQL queries with customizable options',
-      mockGeneratorDesc: 'Generate mock test data with customizable templates and batch generation'
+      mockGeneratorDesc: 'Generate mock test data with customizable templates and batch generation',
+      dataConverterDesc: 'Convert between CSV and JSON with delimiter options'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -71,7 +72,34 @@ const translations = {
       regexTester: 'Regex Tester',
       sqlFormatter: 'SQL Formatter',
       mockGenerator: 'Mock Data Generator',
+      dataConverter: 'CSV / JSON Converter',
       settings: 'Settings'
+    },
+    dataConverter: {
+      title: 'CSV / JSON Converter',
+      description: 'Convert between CSV and JSON with delimiter options',
+      csvToJson: 'CSV → JSON',
+      jsonToCsv: 'JSON → CSV',
+      delimiter: 'Delimiter',
+      delimiterAuto: 'Auto-detect',
+      delimiterComma: 'Comma (,)',
+      delimiterSemicolon: 'Semicolon (;)',
+      delimiterTab: 'Tab (\\t)',
+      delimiterPipe: 'Pipe (|)',
+      convert: 'Convert',
+      converting: 'Converting...',
+      swap: 'Swap direction',
+      clear: 'Clear',
+      copyOutput: 'Copy output',
+      exportCsv: 'Export CSV',
+      exportCsvError: 'Failed to export CSV.',
+      outputPlaceholder: 'Converted result will appear here...',
+      inputPlaceholderCsv: 'name,age\\nAlice,30\\nBob,25',
+      inputPlaceholderJson: '[\\n  {\"name\": \"Alice\", \"age\": 30},\\n  {\"name\": \"Bob\", \"age\": 25}\\n]',
+      errorEmpty: 'Please enter some content to convert.',
+      errorInvalidCsv: 'Invalid CSV content, please check the format.',
+      errorInvalidJson: 'Invalid JSON content, please check the format.',
+      errorJsonArray: 'JSON should be an array of objects.'
     },
     imageTools: {
       title: 'Image Tools',
@@ -1131,7 +1159,8 @@ const translations = {
       otpDesc: '生成 TOTP 和 HOTP 一次性密码',
       romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换',
       regexTesterDesc: '实时测试和调试正则表达式，支持匹配高亮',
-      sqlFormatterDesc: '格式化和美化 SQL 查询，支持自定义选项'
+      sqlFormatterDesc: '格式化和美化 SQL 查询，支持自定义选项',
+      dataConverterDesc: 'CSV 与 JSON 互转，支持分隔符选项'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -1164,7 +1193,34 @@ const translations = {
       regexTester: '正则表达式测试器',
       sqlFormatter: 'SQL 格式化',
       mockGenerator: 'Mock 数据生成器',
+      dataConverter: 'CSV / JSON 转换',
       settings: '设置'
+    },
+    dataConverter: {
+      title: 'CSV / JSON 转换',
+      description: 'CSV 与 JSON 互转，支持分隔符选项',
+      csvToJson: 'CSV 转 JSON',
+      jsonToCsv: 'JSON 转 CSV',
+      delimiter: '分隔符',
+      delimiterAuto: '自动识别',
+      delimiterComma: '逗号 (,)',
+      delimiterSemicolon: '分号 (;)',
+      delimiterTab: '制表符 (\\t)',
+      delimiterPipe: '竖线 (|)',
+      convert: '转换',
+      converting: '正在转换...',
+      swap: '切换方向',
+      clear: '清空',
+      copyOutput: '复制结果',
+      exportCsv: '导出 CSV',
+      exportCsvError: '导出 CSV 失败',
+      outputPlaceholder: '转换后的结果将显示在这里...',
+      inputPlaceholderCsv: 'name,age\\nAlice,30\\nBob,25',
+      inputPlaceholderJson: '[\\n  {\"name\": \"Alice\", \"age\": 30},\\n  {\"name\": \"Bob\", \"age\": 25}\\n]',
+      errorEmpty: '请输入要转换的内容',
+      errorInvalidCsv: 'CSV 内容无效，请检查格式',
+      errorInvalidJson: 'JSON 内容无效，请检查格式',
+      errorJsonArray: 'JSON 需为对象数组'
     },
     imageTools: {
       title: '图片处理',

@@ -32,6 +32,7 @@
     "lucide-svelte": "^0.552.0",
     "marked": "^16.4.1",
     "mermaid": "^11.12.1",
+    "papaparse": "^5.4.1",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.394",
     "pkijs": "^3.3.3",
