@@ -30,6 +30,7 @@ const translations = {
       ibanDesc: 'Validate and parse IBAN numbers with checksum checks',
       qrCodeDesc: 'Generate QR codes from text or URLs',
       pdfSignatureDesc: 'Inspect and verify digital signatures embedded in PDF files',
+      certificateViewerDesc: 'View and inspect certificate files (PEM, CRT, CER, KEY) with detailed information',
       tlsCheckerDesc: 'Check which TLS/SSL versions are supported by remote servers',
       portScannerDesc: 'Scan open ports on remote hosts with customizable ranges and concurrency',
       chmodDesc: 'Calculate and convert file permissions (chmod)',
@@ -63,6 +64,7 @@ const translations = {
       qrCode: 'QR Code Generator',
       iban: 'IBAN Validator',
       pdfSignature: 'PDF Signature Checker',
+      certificateViewer: 'Certificate Viewer',
       tlsChecker: 'TLS Version Checker',
       portScanner: 'Port Scanner',
       chmod: 'Chmod Calculator',
@@ -889,6 +891,61 @@ const translations = {
         'Multiple signatures are displayed in the order they appear in the document.'
       ]
     },
+    certificateViewer: {
+      title: 'Certificate Viewer',
+      description: 'View and inspect certificate files with detailed information',
+      dropTitle: 'Drop certificate file',
+      dropSubtitle: 'Click to select or drag & drop a certificate file (max 5 MB)',
+      selectFile: 'Select Certificate',
+      clear: 'Clear',
+      loading: 'Loading certificate...',
+      helperText: 'Supports PEM, CRT, CER, KEY, CERT, DER, P12, PFX formats',
+      fileInfo: 'File Information',
+      fileName: 'File Name',
+      fileSize: 'File Size',
+      validity: 'Validity',
+      validFrom: 'Valid From',
+      validTo: 'Valid To',
+      subject: 'Subject',
+      issuer: 'Issuer',
+      details: 'Certificate Details',
+      serialNumber: 'Serial Number',
+      version: 'Version',
+      algorithm: 'Algorithm',
+      keySize: 'Key Size',
+      fingerprint: 'Fingerprint (SHA-256)',
+      extensions: 'Extensions',
+      critical: 'Critical',
+      raw: 'Raw Certificate',
+      commonName: 'Common Name (CN)',
+      organization: 'Organization (O)',
+      organizationalUnit: 'Organizational Unit (OU)',
+      email: 'Email',
+      locality: 'Locality (L)',
+      state: 'State/Province (ST)',
+      country: 'Country (C)',
+      fullDN: 'Full Distinguished Name',
+      status: {
+        valid: 'Valid',
+        expired: 'Expired',
+        notYetValid: 'Not Yet Valid'
+      },
+      errors: {
+        invalidFile: 'Only certificate files are supported (.pem, .crt, .cer, .key, .cert, .der, .p12, .pfx)',
+        parseFailed: 'Failed to parse certificate file',
+        invalidPem: 'Invalid PEM format',
+        invalidFormat: 'Invalid certificate format. The file may be corrupted or in an unsupported format.',
+        fileTooLarge: 'Certificate file exceeds the 5 MB limit',
+        readFailed: 'Failed to read file'
+      }
+    },
+    chmod: {
+      tips: [
+        'Each signature is verified against the byte ranges embedded inside the PDF.',
+        'Certificate trust chains are not evaluated. Use a trusted PDF reader for compliance workflows.',
+        'Multiple signatures are displayed in the order they appear in the document.'
+      ]
+    },
     chmod: {
       title: 'Chmod Calculator',
       description: 'Calculate and convert Unix file permissions between octal and symbolic notation',
@@ -1204,6 +1261,7 @@ const translations = {
       ibanDesc: '校验并解析 IBAN 账号，含校验位验证',
       qrCodeDesc: '从文本或 URL 生成二维码',
       pdfSignatureDesc: '检查 PDF 中的数字签名并验证完整性',
+      certificateViewerDesc: '查看和检查证书文件（PEM、CRT、CER、KEY）的详细信息',
       tlsCheckerDesc: '检测远程服务器支持的 TLS/SSL 版本',
       portScannerDesc: '扫描远程主机的开放端口，支持自定义范围和并发设置',
       chmodDesc: '计算和转换文件权限（chmod）',
@@ -1236,6 +1294,7 @@ const translations = {
       qrCode: '二维码生成器',
       iban: 'IBAN 校验器',
       pdfSignature: 'PDF 签名校验',
+      certificateViewer: '证书查看器',
       tlsChecker: 'TLS 版本检测',
       portScanner: '端口扫描',
       chmod: 'Chmod 权限计算器',
@@ -2056,6 +2115,61 @@ const translations = {
         fileTooLarge: 'PDF 大小超过 20 MB 限制'
       },
       tipsTitle: '提示',
+      tips: [
+        '每个签名都会按照 PDF 中记录的 ByteRange 重新验证。',
+        '不会检查证书信任链，如需合规用途请使用权威 PDF 阅读器。',
+        '当文档包含多个签名时，会按出现顺序依次列出。'
+      ]
+    },
+    certificateViewer: {
+      title: '证书查看器',
+      description: '查看和检查证书文件的详细信息',
+      dropTitle: '拖拽证书文件',
+      dropSubtitle: '点击选择或拖拽证书文件（最大 5 MB）',
+      selectFile: '选择证书',
+      clear: '清空',
+      loading: '正在加载证书...',
+      helperText: '支持 PEM、CRT、CER、KEY、CERT、DER、P12、PFX 格式',
+      fileInfo: '文件信息',
+      fileName: '文件名',
+      fileSize: '文件大小',
+      validity: '有效期',
+      validFrom: '生效时间',
+      validTo: '过期时间',
+      subject: '主题',
+      issuer: '颁发者',
+      details: '证书详情',
+      serialNumber: '序列号',
+      version: '版本',
+      algorithm: '算法',
+      keySize: '密钥长度',
+      fingerprint: '指纹 (SHA-256)',
+      extensions: '扩展',
+      critical: '关键',
+      raw: '原始证书',
+      commonName: '通用名称 (CN)',
+      organization: '组织 (O)',
+      organizationalUnit: '组织单位 (OU)',
+      email: '邮箱',
+      locality: '地区 (L)',
+      state: '省/州 (ST)',
+      country: '国家 (C)',
+      fullDN: '完整可分辨名称',
+      status: {
+        valid: '有效',
+        expired: '已过期',
+        notYetValid: '尚未生效'
+      },
+      errors: {
+        invalidFile: '仅支持证书文件（.pem、.crt、.cer、.key、.cert、.der、.p12、.pfx）',
+        parseFailed: '解析证书文件失败',
+        invalidPem: '无效的 PEM 格式',
+        invalidFormat: '无效的证书格式。文件可能已损坏或格式不受支持。',
+        fileTooLarge: '证书文件大小超过 5 MB 限制',
+        readFailed: '读取文件失败'
+      }
+    },
+    chmod: {
       tips: [
         '每个签名都会按照 PDF 中记录的 ByteRange 重新验证。',
         '不会检查证书信任链，如需合规用途请使用权威 PDF 阅读器。',
