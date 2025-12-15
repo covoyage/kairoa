@@ -35,6 +35,7 @@ const translations = {
       portScannerDesc: 'Scan open ports on remote hosts with customizable ranges and concurrency',
       chmodDesc: 'Calculate and convert file permissions (chmod)',
       keycodeDesc: 'View keyboard key codes and event information',
+      passwordStrengthDesc: 'Check password strength and get security recommendations',
       basicAuthDesc: 'Generate HTTP Basic Authentication headers',
       otpDesc: 'Generate TOTP and HOTP one-time passwords',
       romanNumeralDesc: 'Convert between Roman numerals and Arabic numbers',
@@ -69,6 +70,7 @@ const translations = {
       portScanner: 'Port Scanner',
       chmod: 'Chmod Calculator',
       keycode: 'Keycode Info',
+      passwordStrength: 'Password Strength Checker',
       basicAuth: 'Basic Auth Generator',
       otp: 'OTP Generator',
       hmac: 'HMAC Generator',
@@ -1185,6 +1187,94 @@ const translations = {
       empty: '(empty)',
       placeholder: 'Press any key to see its information'
     },
+    passwordStrength: {
+      title: 'Password Strength Checker',
+      description: 'Check the strength of your password and get security recommendations',
+      password: 'Password',
+      placeholder: 'Enter password to check...',
+      strength: 'Strength',
+      clear: 'Clear',
+      empty: 'Enter a password to check its strength',
+      levels: {
+        'very-weak': 'Very Weak',
+        weak: 'Weak',
+        fair: 'Fair',
+        good: 'Good',
+        strong: 'Strong',
+        'very-strong': 'Very Strong'
+      },
+      crackTime: {
+        title: 'Estimated Time to Crack',
+        instant: 'Less than a second',
+        seconds: 'A few seconds',
+        minutes: 'A few minutes',
+        hours: 'A few hours',
+        days: 'A few days',
+        years: 'Years',
+        centuries: 'Centuries'
+      },
+      checks: {
+        title: 'Security Checks',
+        length: {
+          label: 'Length',
+          weak: 'Too short (minimum 8 characters)',
+          good: 'Good length (8-11 characters)',
+          strong: 'Strong length (12+ characters)'
+        },
+        uppercase: {
+          label: 'Uppercase Letters',
+          passed: 'Contains uppercase letters',
+          failed: 'Missing uppercase letters'
+        },
+        lowercase: {
+          label: 'Lowercase Letters',
+          passed: 'Contains lowercase letters',
+          failed: 'Missing lowercase letters'
+        },
+        numbers: {
+          label: 'Numbers',
+          passed: 'Contains numbers',
+          failed: 'Missing numbers'
+        },
+        special: {
+          label: 'Special Characters',
+          passed: 'Contains special characters',
+          failed: 'Missing special characters'
+        },
+        variety: {
+          label: 'Character Variety',
+          weak: 'Low character variety',
+          good: 'Good character variety',
+          strong: 'High character variety'
+        },
+        common: {
+          label: 'Common Password',
+          passed: 'Not a common password',
+          failed: 'This is a commonly used password'
+        },
+        sequential: {
+          label: 'Sequential Characters',
+          passed: 'No sequential patterns',
+          failed: 'Contains sequential characters'
+        },
+        repeated: {
+          label: 'Repeated Characters',
+          passed: 'No repeated characters',
+          failed: 'Contains repeated characters'
+        }
+      },
+      suggestions: {
+        title: 'Suggestions to Improve',
+        length: 'Use at least 12 characters',
+        uppercase: 'Add uppercase letters',
+        lowercase: 'Add lowercase letters',
+        numbers: 'Add numbers',
+        special: 'Add special characters (!@#$%^&*)',
+        common: 'Avoid common passwords',
+        sequential: 'Avoid sequential patterns (123, abc)',
+        repeated: 'Avoid repeated characters (aaa, 111)'
+      }
+    },
     basicAuth: {
       input: 'Input',
       username: 'Username',
@@ -1266,6 +1356,7 @@ const translations = {
       portScannerDesc: '扫描远程主机的开放端口，支持自定义范围和并发设置',
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
+      passwordStrengthDesc: '检测密码强度并获取安全建议',
       basicAuthDesc: '生成 HTTP Basic Authentication 认证头',
       otpDesc: '生成 TOTP 和 HOTP 一次性密码',
       romanNumeralDesc: '罗马数字和阿拉伯数字之间的转换',
@@ -1299,6 +1390,7 @@ const translations = {
       portScanner: '端口扫描',
       chmod: 'Chmod 权限计算器',
       keycode: '按键代码信息',
+      passwordStrength: '密码强度检测器',
       basicAuth: 'Basic Auth 生成器',
       otp: 'OTP 生成器',
       hmac: 'HMAC 生成器',
@@ -2414,6 +2506,94 @@ const translations = {
       json: 'JSON',
       empty: '（空）',
       placeholder: '按下任意按键查看其信息'
+    },
+    passwordStrength: {
+      title: '密码强度检测器',
+      description: '检测密码强度并获取安全建议',
+      password: '密码',
+      placeholder: '输入密码进行检测...',
+      strength: '强度',
+      clear: '清空',
+      empty: '输入密码以检测其强度',
+      levels: {
+        'very-weak': '非常弱',
+        weak: '弱',
+        fair: '一般',
+        good: '良好',
+        strong: '强',
+        'very-strong': '非常强'
+      },
+      crackTime: {
+        title: '预估破解时间',
+        instant: '不到一秒',
+        seconds: '几秒钟',
+        minutes: '几分钟',
+        hours: '几小时',
+        days: '几天',
+        years: '几年',
+        centuries: '几个世纪'
+      },
+      checks: {
+        title: '安全检查',
+        length: {
+          label: '长度',
+          weak: '太短（至少 8 个字符）',
+          good: '长度良好（8-11 个字符）',
+          strong: '长度很强（12+ 个字符）'
+        },
+        uppercase: {
+          label: '大写字母',
+          passed: '包含大写字母',
+          failed: '缺少大写字母'
+        },
+        lowercase: {
+          label: '小写字母',
+          passed: '包含小写字母',
+          failed: '缺少小写字母'
+        },
+        numbers: {
+          label: '数字',
+          passed: '包含数字',
+          failed: '缺少数字'
+        },
+        special: {
+          label: '特殊字符',
+          passed: '包含特殊字符',
+          failed: '缺少特殊字符'
+        },
+        variety: {
+          label: '字符多样性',
+          weak: '字符多样性低',
+          good: '字符多样性良好',
+          strong: '字符多样性高'
+        },
+        common: {
+          label: '常见密码',
+          passed: '不是常见密码',
+          failed: '这是常用的密码'
+        },
+        sequential: {
+          label: '连续字符',
+          passed: '无连续模式',
+          failed: '包含连续字符'
+        },
+        repeated: {
+          label: '重复字符',
+          passed: '无重复字符',
+          failed: '包含重复字符'
+        }
+      },
+      suggestions: {
+        title: '改进建议',
+        length: '使用至少 12 个字符',
+        uppercase: '添加大写字母',
+        lowercase: '添加小写字母',
+        numbers: '添加数字',
+        special: '添加特殊字符 (!@#$%^&*)',
+        common: '避免使用常见密码',
+        sequential: '避免连续模式 (123, abc)',
+        repeated: '避免重复字符 (aaa, 111)'
+      }
     },
     basicAuth: {
       input: '输入',

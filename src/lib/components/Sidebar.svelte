@@ -96,6 +96,7 @@
   { path: '/data-converter', icon: FileSpreadsheet, key: 'nav.dataConverter' },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
+    { path: '/password-strength', icon: Shield, key: 'nav.passwordStrength' },
   ];
 
   // 从 localStorage 加载侧边栏状态
