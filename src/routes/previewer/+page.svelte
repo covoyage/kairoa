@@ -41,6 +41,35 @@
   let showCopyDropdown = $state(false);
   let isExporting = $state(false); // 导出状态
   
+  // 行号相关的引用
+  let svgTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let svgLineNumbersRef = $state<HTMLDivElement | null>(null);
+  let markdownTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let markdownLineNumbersRef = $state<HTMLDivElement | null>(null);
+  let mermaidTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let mermaidLineNumbersRef = $state<HTMLDivElement | null>(null);
+  
+  // 更新行号显示
+  function updateLineNumbers(textarea: HTMLTextAreaElement | null, lineNumbersDiv: HTMLDivElement | null) {
+    if (!textarea || !lineNumbersDiv) return;
+    
+    const lines = textarea.value.split('\n');
+    const lineCount = lines.length || 1;
+    
+    // 获取 textarea 的行高
+    const computedStyle = window.getComputedStyle(textarea);
+    const lineHeight = computedStyle.lineHeight;
+    
+    lineNumbersDiv.innerHTML = Array.from({ length: lineCount }, (_, i) => i + 1)
+      .map(num => `<div class="px-2 text-right text-gray-500 dark:text-gray-400 text-sm select-none" style="line-height: ${lineHeight};">${num}</div>`)
+      .join('');
+  }
+  
+  // 同步滚动
+  function syncScroll(textarea: HTMLTextAreaElement, lineNumbersDiv: HTMLDivElement) {
+    lineNumbersDiv.scrollTop = textarea.scrollTop;
+  }
+  
   // 缩放相关状态
   let zoomLevel = $state(1.0);
   let minZoom = 0.5;
@@ -917,6 +946,33 @@
       isTauri = '__TAURI_INTERNALS__' in window;
     }
   });
+  
+  // 更新 SVG 行号
+  $effect(() => {
+    svgContent; // 监听内容变化
+    // 使用 setTimeout 确保 DOM 已更新
+    setTimeout(() => {
+      updateLineNumbers(svgTextareaRef, svgLineNumbersRef);
+    }, 0);
+  });
+  
+  // 更新 Markdown 行号
+  $effect(() => {
+    markdownContent; // 监听内容变化
+    // 使用 setTimeout 确保 DOM 已更新
+    setTimeout(() => {
+      updateLineNumbers(markdownTextareaRef, markdownLineNumbersRef);
+    }, 0);
+  });
+  
+  // 更新 Mermaid 行号
+  $effect(() => {
+    mermaidContent; // 监听内容变化
+    // 使用 setTimeout 确保 DOM 已更新
+    setTimeout(() => {
+      updateLineNumbers(mermaidTextareaRef, mermaidLineNumbersRef);
+    }, 0);
+  });
 
   // 缩放控制函数
   function handleZoom(delta: number, container: HTMLElement) {
@@ -1675,26 +1731,41 @@
           </div>
         </div>
         
-        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
+        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2 items-start">
           <!-- SVG 输入 -->
           <div class="card flex flex-col h-full">
-            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0" style="height: 26px; min-height: 26px;">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.svgInput')}
               </div>
+              <div class="w-0"></div>
             </div>
-            <div class="flex-1 min-h-0">
+            <div class="flex-1 min-h-0 flex overflow-hidden">
+              <div
+                bind:this={svgLineNumbersRef}
+                class="flex-shrink-0 overflow-hidden text-right bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 py-2"
+                style="min-width: 3rem; max-height: 100%;"
+              ></div>
               <textarea
+                bind:this={svgTextareaRef}
                 bind:value={svgContent}
                 placeholder={t('previewer.svgPlaceholder')}
-                class="textarea font-mono text-sm h-full resize-none"
+                class="textarea font-mono text-sm h-full resize-none flex-1 border-0 rounded-none"
+                onscroll={(e) => {
+                  if (svgLineNumbersRef) {
+                    syncScroll(e.currentTarget, svgLineNumbersRef);
+                  }
+                }}
+                oninput={() => {
+                  updateLineNumbers(svgTextareaRef, svgLineNumbersRef);
+                }}
               ></textarea>
             </div>
           </div>
 
           <!-- SVG 预览 -->
           <div class="card flex flex-col h-full" data-preview="svg" bind:this={svgPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0" style="height: 26px; min-height: 26px;">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
               </div>
@@ -1826,18 +1897,32 @@
                 {t('previewer.markdownInput')}
               </div>
             </div>
-            <div class="flex-1 min-h-0">
+            <div class="flex-1 min-h-0 flex overflow-hidden">
+              <div
+                bind:this={markdownLineNumbersRef}
+                class="flex-shrink-0 overflow-hidden text-right bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 py-2"
+                style="min-width: 3rem; max-height: 100%;"
+              ></div>
               <textarea
+                bind:this={markdownTextareaRef}
                 bind:value={markdownContent}
                 placeholder={t('previewer.markdownPlaceholder')}
-                class="textarea font-mono text-sm h-full resize-none"
+                class="textarea font-mono text-sm h-full resize-none flex-1 border-0 rounded-none"
+                onscroll={(e) => {
+                  if (markdownLineNumbersRef) {
+                    syncScroll(e.currentTarget, markdownLineNumbersRef);
+                  }
+                }}
+                oninput={() => {
+                  updateLineNumbers(markdownTextareaRef, markdownLineNumbersRef);
+                }}
               ></textarea>
             </div>
           </div>
 
           <!-- Markdown 预览 -->
           <div class="card flex flex-col h-full" bind:this={markdownPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0" style="height: 26px; min-height: 26px;">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
               </div>
@@ -1981,26 +2066,41 @@
           </div>
         </div>
         
-        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2">
+        <div class="flex-1 min-h-0 grid grid-cols-2 gap-2 items-start">
           <!-- Mermaid 输入 -->
           <div class="card flex flex-col h-full">
-            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0" style="height: 26px; min-height: 26px;">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.mermaidInput')}
               </div>
+              <div class="w-0"></div>
             </div>
-            <div class="flex-1 min-h-0">
+            <div class="flex-1 min-h-0 flex overflow-hidden">
+              <div
+                bind:this={mermaidLineNumbersRef}
+                class="flex-shrink-0 overflow-hidden text-right bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700 py-2"
+                style="min-width: 3rem; max-height: 100%;"
+              ></div>
               <textarea
+                bind:this={mermaidTextareaRef}
                 bind:value={mermaidContent}
                 placeholder={t('previewer.mermaidPlaceholder')}
-                class="textarea font-mono text-sm h-full resize-none"
+                class="textarea font-mono text-sm h-full resize-none flex-1 border-0 rounded-none"
+                onscroll={(e) => {
+                  if (mermaidLineNumbersRef) {
+                    syncScroll(e.currentTarget, mermaidLineNumbersRef);
+                  }
+                }}
+                oninput={() => {
+                  updateLineNumbers(mermaidTextareaRef, mermaidLineNumbersRef);
+                }}
               ></textarea>
             </div>
           </div>
 
           <!-- Mermaid 预览 -->
           <div class="card flex flex-col h-full" bind:this={mermaidPreviewContainer}>
-            <div class="flex items-center justify-between mb-2 flex-shrink-0 h-[26px]">
+            <div class="flex items-center justify-between mb-2 flex-shrink-0" style="height: 26px; min-height: 26px;">
               <div class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t('previewer.preview')}
               </div>
