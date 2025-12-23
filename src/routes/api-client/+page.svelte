@@ -165,6 +165,25 @@
     tab.headers = [...tab.headers, { key: '', value: '', enabled: true }];
   }
 
+  async function copyHeaders(tab: TabData) {
+    const lines = tab.headers
+      .filter((h) => h.enabled && (h.key.trim() || h.value.trim()))
+      .map((h) => `${h.key.trim()}: ${h.value.trim()}`);
+
+    const text = lines.join('\n');
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      headersCopied = true;
+      setTimeout(() => {
+        headersCopied = false;
+      }, 1200);
+    } catch (error) {
+      console.error('Failed to copy headers:', error);
+    }
+  }
+
   function removeHeader(tab: TabData, index: number) {
     tab.headers = tab.headers.filter((_, i) => i !== index);
     if (tab.headers.length === 0) {
@@ -179,6 +198,7 @@
   let showExportCurlDialog = $state(false);
   let generatedCurlCommand = $state('');
   let curlCopied = $state(false);
+  let headersCopied = $state(false);
   let showDropdown = $state(false);
   let requestView = $state<'headers' | 'body'>('headers');
   let showResponseDialog = $state(false);
@@ -276,6 +296,17 @@
     const headers: Header[] = [];
     const lines = text.split('\n');
     
+    const stripWrappingQuotes = (input: string): string => {
+      const trimmed = input.trim();
+      if (
+        (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ) {
+        return trimmed.slice(1, -1);
+      }
+      return trimmed;
+    };
+
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed) continue;
@@ -287,11 +318,11 @@
       if (trimmed.includes(':')) {
         const colonIndex = trimmed.indexOf(':');
         key = trimmed.substring(0, colonIndex).trim();
-        value = trimmed.substring(colonIndex + 1).trim();
+        value = stripWrappingQuotes(trimmed.substring(colonIndex + 1));
       } else if (trimmed.includes('=')) {
         const equalIndex = trimmed.indexOf('=');
         key = trimmed.substring(0, equalIndex).trim();
-        value = trimmed.substring(equalIndex + 1).trim();
+        value = stripWrappingQuotes(trimmed.substring(equalIndex + 1));
       } else {
         continue; // 跳过无法解析的行
       }
@@ -1420,18 +1451,33 @@
         {#if requestView === 'headers'}
           <!-- Headers Content -->
           <div>
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+              <div class="flex items-center gap-2">
+                <button
+                  onclick={() => { bulkHeaderText = ''; showBulkHeaderDialog = true; }}
+                  class="btn-secondary text-sm"
+                >
+                  {t('apiClient.bulkAdd')}
+                </button>
+                <button
+                  onclick={() => addHeader(activeTab)}
+                  class="btn-secondary text-sm"
+                >
+                  {t('apiClient.addHeader')}
+                </button>
+              </div>
               <button
-                onclick={() => { bulkHeaderText = ''; showBulkHeaderDialog = true; }}
-                class="btn-secondary text-sm"
+                onclick={() => copyHeaders(activeTab)}
+                class="btn-secondary text-sm transition-all duration-200 {headersCopied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                title="Copy headers"
               >
-                {t('apiClient.bulkAdd')}
-              </button>
-              <button
-                onclick={() => addHeader(activeTab)}
-                class="btn-secondary text-sm"
-              >
-                {t('apiClient.addHeader')}
+                {#if headersCopied}
+                  <Check class="w-4 h-4 inline mr-1" />
+                  {t('common.copied')}
+                {:else}
+                  <Copy class="w-4 h-4 inline mr-1" />
+                  Copy Headers
+                {/if}
               </button>
             </div>
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
