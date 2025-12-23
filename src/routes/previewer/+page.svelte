@@ -48,6 +48,50 @@
   let markdownLineNumbersRef = $state<HTMLDivElement | null>(null);
   let mermaidTextareaRef = $state<HTMLTextAreaElement | null>(null);
   let mermaidLineNumbersRef = $state<HTMLDivElement | null>(null);
+  const STORAGE_KEY = 'previewer.state.v1';
+  let hasLoadedFromStorage = false;
+
+  function loadSavedState() {
+    if (!browser || hasLoadedFromStorage) return;
+    hasLoadedFromStorage = true;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          activeView?: typeof activeView;
+          svgContent?: string;
+          markdownContent?: string;
+          mermaidContent?: string;
+        };
+        if (parsed.activeView === 'svg' || parsed.activeView === 'markdown' || parsed.activeView === 'mermaid') {
+          activeView = parsed.activeView;
+        }
+        if (typeof parsed.svgContent === 'string') svgContent = parsed.svgContent;
+        if (typeof parsed.markdownContent === 'string') markdownContent = parsed.markdownContent;
+        if (typeof parsed.mermaidContent === 'string') mermaidContent = parsed.mermaidContent;
+      }
+    } catch (error) {
+      console.error('Failed to load previewer state:', error);
+    }
+  }
+
+  function saveState() {
+    if (!browser) return;
+    try {
+      const payload = {
+        activeView,
+        svgContent,
+        markdownContent,
+        mermaidContent
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.error('Failed to save previewer state:', error);
+    }
+  }
+
+  // 初次加载时恢复本地数据
+  loadSavedState();
   
   // 更新行号显示
   function updateLineNumbers(textarea: HTMLTextAreaElement | null, lineNumbersDiv: HTMLDivElement | null) {
@@ -946,6 +990,12 @@
       isTauri = '__TAURI_INTERNALS__' in window;
     }
   });
+
+  // 视图切换时保存状态
+  $effect(() => {
+    activeView;
+    saveState();
+  });
   
   // 更新 SVG 行号
   $effect(() => {
@@ -954,6 +1004,7 @@
     setTimeout(() => {
       updateLineNumbers(svgTextareaRef, svgLineNumbersRef);
     }, 0);
+    saveState();
   });
   
   // 更新 Markdown 行号
@@ -963,6 +1014,7 @@
     setTimeout(() => {
       updateLineNumbers(markdownTextareaRef, markdownLineNumbersRef);
     }, 0);
+    saveState();
   });
   
   // 更新 Mermaid 行号
@@ -972,6 +1024,7 @@
     setTimeout(() => {
       updateLineNumbers(mermaidTextareaRef, mermaidLineNumbersRef);
     }, 0);
+    saveState();
   });
 
   // 缩放控制函数
