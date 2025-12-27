@@ -18,6 +18,7 @@
   let commandType = $state<CommandType>('commit');
   let generatedCommand = $state('');
   let commandDescription = $state('');
+  let parameterDescriptions = $state<string[]>([]);
   let copied = $state(false);
   const STORAGE_KEY = 'gitCommands.state.v1';
   let hasLoadedFromStorage = false;
@@ -311,6 +312,7 @@
   $effect(() => {
     commandType;
     commandDescription = getCommandDescription(commandType);
+    parameterDescriptions = getParameterDescriptions(commandType);
     saveState();
   });
 
@@ -973,10 +975,196 @@
 
     generatedCommand = cmd;
     commandDescription = getCommandDescription(commandType);
+    parameterDescriptions = getParameterDescriptions(commandType);
   }
 
   function getCommandDescription(type: CommandType): string {
     return t(`gitCommands.descriptions.${type}`);
+  }
+
+  function getParameterDescriptions(type: CommandType): string[] {
+    const descriptions: string[] = [];
+    
+    switch (type) {
+      case 'commit':
+        if (commitAll) descriptions.push(t('gitCommands.paramDescriptions.commit.addAll'));
+        if (commitAmend) descriptions.push(t('gitCommands.paramDescriptions.commit.amend'));
+        if (commitMessage) descriptions.push(t('gitCommands.paramDescriptions.commit.message'));
+        break;
+      case 'push':
+        if (pushForce) descriptions.push(t('gitCommands.paramDescriptions.push.force'));
+        if (pushTags) descriptions.push(t('gitCommands.paramDescriptions.push.tags'));
+        if (pushRemote) descriptions.push(t('gitCommands.paramDescriptions.push.remote'));
+        if (pushBranch) descriptions.push(t('gitCommands.paramDescriptions.push.branch'));
+        break;
+      case 'pull':
+        if (pullRebase) descriptions.push(t('gitCommands.paramDescriptions.pull.rebase'));
+        if (pullRemote) descriptions.push(t('gitCommands.paramDescriptions.pull.remote'));
+        if (pullBranch) descriptions.push(t('gitCommands.paramDescriptions.pull.branch'));
+        break;
+      case 'fetch':
+        if (fetchAll) descriptions.push(t('gitCommands.paramDescriptions.fetch.all'));
+        if (fetchPrune) descriptions.push(t('gitCommands.paramDescriptions.fetch.prune'));
+        if (fetchTags) descriptions.push(t('gitCommands.paramDescriptions.fetch.tags'));
+        if (fetchRemote) descriptions.push(t('gitCommands.paramDescriptions.fetch.remote'));
+        if (fetchBranch) descriptions.push(t('gitCommands.paramDescriptions.fetch.branch'));
+        break;
+      case 'branch':
+        if (branchCheckout && branchOperation === 'create') descriptions.push(t('gitCommands.paramDescriptions.branch.checkout'));
+        if (branchCheckout && branchOperation === 'list') descriptions.push(t('gitCommands.paramDescriptions.branch.showAll'));
+        break;
+      case 'merge':
+        if (mergeNoFF) descriptions.push(t('gitCommands.paramDescriptions.merge.noFF'));
+        if (mergeSquash) descriptions.push(t('gitCommands.paramDescriptions.merge.squash'));
+        if (mergeBranch) descriptions.push(t('gitCommands.paramDescriptions.merge.branch'));
+        break;
+      case 'rebase':
+        if (rebaseInteractive) descriptions.push(t('gitCommands.paramDescriptions.rebase.interactive'));
+        if (rebaseOnto) descriptions.push(t('gitCommands.paramDescriptions.rebase.onto'));
+        if (rebaseContinue) descriptions.push(t('gitCommands.paramDescriptions.rebase.continue'));
+        if (rebaseAbort) descriptions.push(t('gitCommands.paramDescriptions.rebase.abort'));
+        if (rebaseBranch) descriptions.push(t('gitCommands.paramDescriptions.rebase.branch'));
+        break;
+      case 'tag':
+        if (tagAnnotated) descriptions.push(t('gitCommands.paramDescriptions.tag.annotated'));
+        if (tagMessage) descriptions.push(t('gitCommands.paramDescriptions.tag.message'));
+        break;
+      case 'log':
+        if (logCount) descriptions.push(t('gitCommands.paramDescriptions.log.count'));
+        if (logGraph) descriptions.push(t('gitCommands.paramDescriptions.log.graph'));
+        if (logOneline) descriptions.push(t('gitCommands.paramDescriptions.log.oneline'));
+        if (logAuthor) descriptions.push(t('gitCommands.paramDescriptions.log.author'));
+        if (logSearch) descriptions.push(t('gitCommands.paramDescriptions.log.search'));
+        break;
+      case 'status':
+        if (statusShort) descriptions.push(t('gitCommands.paramDescriptions.status.short'));
+        break;
+      case 'clone':
+        if (cloneDepth) descriptions.push(t('gitCommands.paramDescriptions.clone.depth'));
+        if (cloneBranch) descriptions.push(t('gitCommands.paramDescriptions.clone.branch'));
+        if (cloneDirectory) descriptions.push(t('gitCommands.paramDescriptions.clone.directory'));
+        break;
+      case 'checkout':
+        if (checkoutCreate) descriptions.push(t('gitCommands.paramDescriptions.checkout.create'));
+        if (checkoutFile) descriptions.push(t('gitCommands.paramDescriptions.checkout.file'));
+        break;
+      case 'add':
+        if (addAll) descriptions.push(t('gitCommands.paramDescriptions.add.all'));
+        if (addPatch) descriptions.push(t('gitCommands.paramDescriptions.add.patch'));
+        if (addUpdate) descriptions.push(t('gitCommands.paramDescriptions.add.update'));
+        if (addFiles) descriptions.push(t('gitCommands.paramDescriptions.add.files'));
+        break;
+      case 'diff':
+        if (diffStaged || diffCached) descriptions.push(t('gitCommands.paramDescriptions.diff.staged'));
+        if (diffStat) descriptions.push(t('gitCommands.paramDescriptions.diff.stat'));
+        if (diffCommit1) descriptions.push(t('gitCommands.paramDescriptions.diff.commit1'));
+        if (diffCommit2) descriptions.push(t('gitCommands.paramDescriptions.diff.commit2'));
+        if (diffFile) descriptions.push(t('gitCommands.paramDescriptions.diff.file'));
+        break;
+      case 'show':
+        if (showStat) descriptions.push(t('gitCommands.paramDescriptions.show.stat'));
+        if (showNameOnly) descriptions.push(t('gitCommands.paramDescriptions.show.nameOnly'));
+        if (showFile) descriptions.push(t('gitCommands.paramDescriptions.show.file'));
+        break;
+      case 'revert':
+        if (revertNoCommit) descriptions.push(t('gitCommands.paramDescriptions.revert.noCommit'));
+        if (revertNoEdit) descriptions.push(t('gitCommands.paramDescriptions.revert.noEdit'));
+        break;
+      case 'cherry-pick':
+        if (cherryPickNoCommit) descriptions.push(t('gitCommands.paramDescriptions.cherryPick.noCommit'));
+        if (cherryPickEdit) descriptions.push(t('gitCommands.paramDescriptions.cherryPick.edit'));
+        break;
+      case 'reset':
+        descriptions.push(t(`gitCommands.paramDescriptions.reset.${resetMode}`));
+        if (resetTarget && resetTarget !== 'HEAD') descriptions.push(t('gitCommands.paramDescriptions.reset.target'));
+        break;
+      case 'stash':
+        if (stashMessage) descriptions.push(t('gitCommands.paramDescriptions.stash.message'));
+        break;
+      case 'config':
+        if (configGlobal) descriptions.push(t('gitCommands.paramDescriptions.config.global'));
+        if (configLocal) descriptions.push(t('gitCommands.paramDescriptions.config.local'));
+        if (configKey) descriptions.push(t('gitCommands.paramDescriptions.config.key'));
+        if (configValue) descriptions.push(t('gitCommands.paramDescriptions.config.value'));
+        break;
+      case 'init':
+        if (initBare) descriptions.push(t('gitCommands.paramDescriptions.init.bare'));
+        if (initTemplate) descriptions.push(t('gitCommands.paramDescriptions.init.template'));
+        break;
+      case 'rm':
+        if (rmCached) descriptions.push(t('gitCommands.paramDescriptions.rm.cached'));
+        if (rmRecursive) descriptions.push(t('gitCommands.paramDescriptions.rm.recursive'));
+        if (rmForce) descriptions.push(t('gitCommands.paramDescriptions.rm.force'));
+        break;
+      case 'clean':
+        if (cleanDryRun) descriptions.push(t('gitCommands.paramDescriptions.clean.dryRun'));
+        if (cleanForce) descriptions.push(t('gitCommands.paramDescriptions.clean.force'));
+        if (cleanInteractive) descriptions.push(t('gitCommands.paramDescriptions.clean.interactive'));
+        if (cleanDirectory) descriptions.push(t('gitCommands.paramDescriptions.clean.directory'));
+        break;
+      case 'blame':
+        if (blameShowEmail) descriptions.push(t('gitCommands.paramDescriptions.blame.showEmail'));
+        if (!blameShowLineNumbers) descriptions.push(t('gitCommands.paramDescriptions.blame.noLineNumbers'));
+        if (blameLineStart || blameLineEnd) descriptions.push(t('gitCommands.paramDescriptions.blame.lineRange'));
+        break;
+      case 'grep':
+        if (grepCaseInsensitive) descriptions.push(t('gitCommands.paramDescriptions.grep.caseInsensitive'));
+        if (grepRecursive) descriptions.push(t('gitCommands.paramDescriptions.grep.recursive'));
+        if (!grepShowLineNumbers) descriptions.push(t('gitCommands.paramDescriptions.grep.noLineNumbers'));
+        if (grepExtendedRegex) descriptions.push(t('gitCommands.paramDescriptions.grep.extendedRegex'));
+        break;
+      case 'reflog':
+        if (reflogShowAll) descriptions.push(t('gitCommands.paramDescriptions.reflog.showAll'));
+        if (reflogCount && reflogCount !== 10) descriptions.push(t('gitCommands.paramDescriptions.reflog.count'));
+        break;
+      case 'archive':
+        if (archiveFormat !== 'tar.gz') descriptions.push(t(`gitCommands.paramDescriptions.archive.${archiveFormat}`));
+        if (archivePrefix) descriptions.push(t('gitCommands.paramDescriptions.archive.prefix'));
+        break;
+      case 'describe':
+        if (describeTags) descriptions.push(t('gitCommands.paramDescriptions.describe.tags'));
+        if (describeAll) descriptions.push(t('gitCommands.paramDescriptions.describe.all'));
+        if (describeLong) descriptions.push(t('gitCommands.paramDescriptions.describe.long'));
+        break;
+      case 'shortlog':
+        if (shortlogCount && shortlogCount !== 10) descriptions.push(t('gitCommands.paramDescriptions.shortlog.count'));
+        if (shortlogEmail) descriptions.push(t('gitCommands.paramDescriptions.shortlog.email'));
+        if (shortlogGroup === 'committer') descriptions.push(t('gitCommands.paramDescriptions.shortlog.committer'));
+        break;
+      case 'switch':
+        if (switchCreate) descriptions.push(t('gitCommands.paramDescriptions.switch.create'));
+        if (switchTrack) descriptions.push(t('gitCommands.paramDescriptions.switch.track'));
+        if (switchDetach) descriptions.push(t('gitCommands.paramDescriptions.switch.detach'));
+        break;
+      case 'restore':
+        if (restoreStaged) descriptions.push(t('gitCommands.paramDescriptions.restore.staged'));
+        if (restoreWorktree) descriptions.push(t('gitCommands.paramDescriptions.restore.worktree'));
+        if (restoreSource) descriptions.push(t('gitCommands.paramDescriptions.restore.source'));
+        break;
+      case 'apply':
+        if (applyCheck) descriptions.push(t('gitCommands.paramDescriptions.apply.check'));
+        if (applyReverse) descriptions.push(t('gitCommands.paramDescriptions.apply.reverse'));
+        if (apply3way) descriptions.push(t('gitCommands.paramDescriptions.apply.3way'));
+        break;
+      case 'format-patch':
+        if (formatPatchNumbered) descriptions.push(t('gitCommands.paramDescriptions.formatPatch.numbered'));
+        if (formatPatchCoverLetter) descriptions.push(t('gitCommands.paramDescriptions.formatPatch.coverLetter'));
+        if (formatPatchOutput) descriptions.push(t('gitCommands.paramDescriptions.formatPatch.output'));
+        break;
+      case 'submodule':
+        if (submoduleRecursive) descriptions.push(t('gitCommands.paramDescriptions.submodule.recursive'));
+        if (submodulePath) descriptions.push(t('gitCommands.paramDescriptions.submodule.path'));
+        if (submoduleUrl) descriptions.push(t('gitCommands.paramDescriptions.submodule.url'));
+        break;
+      case 'worktree':
+        // worktree 命令的参数说明可以在这里添加
+        break;
+      case 'maintenance':
+        if (maintenanceTask) descriptions.push(t(`gitCommands.paramDescriptions.maintenance.${maintenanceTask}`));
+        break;
+    }
+    
+    return descriptions;
   }
 
   async function copyCommand() {
@@ -3003,9 +3191,24 @@
                 <p class="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
                   {t('gitCommands.description')}
                 </p>
-                <p class="text-sm text-blue-800 dark:text-blue-300">
+                <p class="text-sm text-blue-800 dark:text-blue-300 mb-2">
                   {commandDescription}
                 </p>
+                {#if parameterDescriptions.length > 0}
+                  <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                    <p class="text-xs font-medium text-blue-900 dark:text-blue-200 mb-1">
+                      {t('gitCommands.parameterDescriptions')}
+                    </p>
+                    <ul class="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                      {#each parameterDescriptions as desc}
+                        <li class="flex items-start gap-1">
+                          <span class="text-blue-500 dark:text-blue-400 mt-0.5">•</span>
+                          <span>{desc}</span>
+                        </li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
               </div>
             </div>
           </div>

@@ -1356,6 +1356,189 @@ const translations = {
         prefetch: 'Prefetch',
         looseObjects: 'Loose objects',
         incrementalRepack: 'Incremental repack'
+      },
+      parameterDescriptions: 'Parameter Descriptions',
+      paramDescriptions: {
+        commit: {
+          addAll: '--all / -A: Automatically stage all modified and deleted files',
+          amend: '--amend: Amend the previous commit instead of creating a new one',
+          message: '-m: Specify the commit message'
+        },
+        push: {
+          force: '--force: Force push to overwrite remote branch',
+          tags: '--tags: Push all tags to remote',
+          remote: 'Remote: Specify the remote repository name',
+          branch: 'Branch: Specify the branch to push'
+        },
+        pull: {
+          rebase: '--rebase: Use rebase instead of merge',
+          remote: 'Remote: Specify the remote repository name',
+          branch: 'Branch: Specify the branch to pull'
+        },
+        fetch: {
+          all: '--all: Fetch all remotes',
+          prune: '--prune: Remove deleted remote-tracking branches',
+          tags: '--tags: Fetch all tags',
+          remote: 'Remote: Specify the remote repository name',
+          branch: 'Branch: Specify the branch to fetch'
+        },
+        branch: {
+          checkout: '-b: Create and checkout new branch',
+          showAll: '-a: Show all branches (local and remote)'
+        },
+        merge: {
+          noFF: '--no-ff: Create a merge commit even for fast-forward',
+          squash: '--squash: Squash all commits into a single commit',
+          branch: 'Branch: Branch to merge into current branch'
+        },
+        rebase: {
+          interactive: '-i: Start interactive rebase',
+          onto: '--onto: Rebase onto a different base commit',
+          continue: '--continue: Continue rebase after resolving conflicts',
+          abort: '--abort: Abort the rebase operation',
+          branch: 'Branch: Branch to rebase onto'
+        },
+        tag: {
+          annotated: '-a: Create an annotated tag',
+          message: '-m: Tag message for annotated tags'
+        },
+        log: {
+          count: '-n: Limit the number of commits to show',
+          graph: '--graph: Show commit graph',
+          oneline: '--oneline: Show one line per commit',
+          author: '--author: Filter commits by author',
+          search: '--grep: Search commit messages'
+        },
+        status: {
+          short: '-s: Show output in short format'
+        },
+        clone: {
+          depth: '--depth: Create a shallow clone with limited history',
+          branch: '-b: Clone a specific branch',
+          directory: 'Directory: Local directory name for the clone'
+        },
+        checkout: {
+          create: '-b: Create a new branch and switch to it',
+          file: 'File: Restore a specific file from a commit'
+        },
+        add: {
+          all: '-A: Stage all changes (modified, deleted, and untracked)',
+          patch: '-p: Interactively choose hunks to stage',
+          update: '-u: Only stage tracked files',
+          files: 'Files: Specific files or paths to stage'
+        },
+        diff: {
+          staged: '--staged: Show changes in the staging area',
+          stat: '--stat: Show statistics of changes',
+          commit1: 'Commit1: First commit to compare',
+          commit2: 'Commit2: Second commit to compare',
+          file: 'File: Show diff for a specific file'
+        },
+        show: {
+          stat: '--stat: Show statistics of changes',
+          nameOnly: '--name-only: Show only file names',
+          file: 'File: Show a specific file from the commit'
+        },
+        revert: {
+          noCommit: '--no-commit: Stage changes without committing',
+          noEdit: '--no-edit: Use default commit message'
+        },
+        cherryPick: {
+          noCommit: '--no-commit: Stage changes without committing',
+          edit: '--edit: Edit the commit message'
+        },
+        reset: {
+          soft: '--soft: Reset HEAD but keep changes staged',
+          mixed: '--mixed: Reset HEAD and unstage changes (default)',
+          hard: '--hard: Reset HEAD and discard all changes',
+          target: 'Target: Commit, branch, or tag to reset to'
+        },
+        stash: {
+          message: 'Message: Optional message for the stash'
+        },
+        config: {
+          global: '--global: Set configuration globally',
+          local: '--local: Set configuration for current repository',
+          key: 'Key: Configuration key to get/set',
+          value: 'Value: Configuration value to set'
+        },
+        init: {
+          bare: '--bare: Create a bare repository',
+          template: '--template: Use a template directory'
+        },
+        rm: {
+          cached: '--cached: Remove from index only, keep file',
+          recursive: '-r: Recursively remove directories',
+          force: '-f: Force removal even if file has modifications'
+        },
+        clean: {
+          dryRun: '-n: Show what would be removed without removing',
+          force: '-f: Force removal of untracked files',
+          interactive: '-i: Interactive mode to choose what to remove',
+          directory: '-d: Remove untracked directories too'
+        },
+        blame: {
+          showEmail: '-e: Show author email instead of name',
+          noLineNumbers: '-n: Hide line numbers',
+          lineRange: '-L: Show only specified line range'
+        },
+        grep: {
+          caseInsensitive: '-i: Case-insensitive search',
+          recursive: '-r: Search recursively in subdirectories',
+          noLineNumbers: '-n: Hide line numbers in output',
+          extendedRegex: '-E: Use extended regular expressions'
+        },
+        reflog: {
+          showAll: '--all: Show all refs',
+          count: '-n: Limit number of entries to show'
+        },
+        archive: {
+          tar: '--format=tar: Create tar archive',
+          zip: '--format=zip: Create zip archive',
+          prefix: '--prefix: Add prefix to all paths in archive'
+        },
+        describe: {
+          tags: '--tags: Use tags instead of annotated tags',
+          all: '--all: Use any ref instead of just tags',
+          long: '--long: Always use long format'
+        },
+        shortlog: {
+          count: '-n: Sort by number of commits',
+          email: '-e: Show email addresses',
+          committer: '-c: Group by committer instead of author'
+        },
+        switch: {
+          create: '-c: Create new branch and switch to it',
+          track: '--track: Set up tracking for new branch',
+          detach: '--detach: Detach HEAD at the specified commit'
+        },
+        restore: {
+          staged: '--staged: Restore from the index',
+          worktree: '--worktree: Restore from working tree',
+          source: '--source: Restore from specified commit or branch'
+        },
+        apply: {
+          check: '--check: Check if patch applies without applying',
+          reverse: '--reverse: Apply patch in reverse',
+          '3way': '--3way: Use 3-way merge if patch fails'
+        },
+        formatPatch: {
+          numbered: '--numbered: Number patches sequentially',
+          coverLetter: '--cover-letter: Generate a cover letter',
+          output: '-o: Output directory for patch files'
+        },
+        submodule: {
+          recursive: '--recursive: Recursively update submodules',
+          path: 'Path: Submodule path',
+          url: 'URL: Submodule repository URL'
+        },
+        maintenance: {
+          gc: 'gc: Run garbage collection',
+          commitGraph: 'commit-graph: Update commit graph',
+          prefetch: 'prefetch: Prefetch objects from remotes',
+          looseObjects: 'loose-objects: Clean up loose objects',
+          incrementalRepack: 'incremental-repack: Repack objects incrementally'
+        }
       }
     },
     dockerCommands: {
@@ -1467,6 +1650,83 @@ const translations = {
         network: 'Manage networks. Creates, lists, inspects, and removes Docker networks.',
         volume: 'Manage volumes. Creates, lists, inspects, and removes Docker volumes.',
         compose: 'Define and run multi-container Docker applications. Manages applications defined in docker-compose.yml.'
+      },
+      parameterDescriptions: 'Parameter Descriptions',
+      paramDescriptions: {
+        run: {
+          detached: '-d: Run container in background (detached mode)',
+          interactive: '-i: Keep STDIN open even if not attached',
+          tty: '-t: Allocate a pseudo-TTY',
+          name: '--name: Assign a name to the container',
+          port: '-p: Publish container port(s) to the host',
+          volume: '-v: Bind mount a volume',
+          env: '-e: Set environment variables',
+          restart: '--restart: Restart policy (no, on-failure, always, unless-stopped)',
+          remove: '--rm: Automatically remove the container when it exits'
+        },
+        build: {
+          tag: '-t: Name and optionally a tag in the format name:tag',
+          file: '-f: Name of the Dockerfile (default is Dockerfile)',
+          noCache: '--no-cache: Do not use cache when building the image',
+          pull: '--pull: Always attempt to pull a newer version of the image',
+          target: '--target: Set the target build stage to build'
+        },
+        ps: {
+          all: '-a: Show all containers (default shows just running)',
+          latest: '-l: Show the latest created container',
+          filter: '--filter: Filter output based on conditions provided'
+        },
+        images: {
+          all: '-a: Show all images (default hides intermediate images)',
+          filter: '--filter: Filter output based on conditions provided'
+        },
+        rm: {
+          force: '-f: Force the removal of a running container',
+          volumes: '-v: Remove the volumes associated with the container'
+        },
+        rmi: {
+          force: '-f: Force removal of the image',
+          noPrune: '--no-prune: Do not delete untagged parents'
+        },
+        exec: {
+          interactive: '-i: Keep STDIN open even if not attached',
+          tty: '-t: Allocate a pseudo-TTY',
+          user: '-u: Username or UID (format: <name|uid>[:<group|gid>])',
+          workdir: '-w: Working directory inside the container'
+        },
+        logs: {
+          follow: '-f: Follow log output',
+          tail: '--tail: Number of lines to show from the end of the logs',
+          since: '--since: Show logs since timestamp or relative time',
+          until: '--until: Show logs before timestamp or relative time',
+          timestamps: '-t: Show timestamps'
+        },
+        commit: {
+          pause: '-p: Pause container during commit',
+          author: '--author: Author (e.g., "John Doe <john@example.com>")',
+          message: '-m: Commit message'
+        },
+        search: {
+          limit: '--limit: Maximum number of search results',
+          stars: '--stars: Minimum number of stars'
+        },
+        stats: {
+          all: '-a: Show all containers (default shows just running)',
+          noStream: '--no-stream: Disable streaming stats and only pull the first result',
+          format: '--format: Pretty-print images using a Go template'
+        },
+        network: {
+          driver: '--driver: Network driver (bridge, host, overlay, etc.)',
+          subnet: '--subnet: Subnet in CIDR format',
+          gateway: '--gateway: Gateway for the master subnet'
+        },
+        volume: {
+          driver: '--driver: Volume driver name'
+        },
+        compose: {
+          detached: '-d: Run containers in the background',
+          build: '--build: Build images before starting containers'
+        }
       }
     },
     qrCode: {
@@ -3338,6 +3598,189 @@ const translations = {
         prefetch: '预取',
         looseObjects: '松散对象',
         incrementalRepack: '增量重新打包'
+      },
+      parameterDescriptions: '参数说明',
+      paramDescriptions: {
+        commit: {
+          addAll: '--all / -A: 自动暂存所有已修改和已删除的文件',
+          amend: '--amend: 修改上一次提交而不是创建新提交',
+          message: '-m: 指定提交信息'
+        },
+        push: {
+          force: '--force: 强制推送以覆盖远程分支',
+          tags: '--tags: 推送所有标签到远程',
+          remote: '远程: 指定远程仓库名称',
+          branch: '分支: 指定要推送的分支'
+        },
+        pull: {
+          rebase: '--rebase: 使用 rebase 而不是 merge',
+          remote: '远程: 指定远程仓库名称',
+          branch: '分支: 指定要拉取的分支'
+        },
+        fetch: {
+          all: '--all: 获取所有远程',
+          prune: '--prune: 删除已删除的远程跟踪分支',
+          tags: '--tags: 获取所有标签',
+          remote: '远程: 指定远程仓库名称',
+          branch: '分支: 指定要获取的分支'
+        },
+        branch: {
+          checkout: '-b: 创建并切换到新分支',
+          showAll: '-a: 显示所有分支（本地和远程）'
+        },
+        merge: {
+          noFF: '--no-ff: 即使快进也创建合并提交',
+          squash: '--squash: 将所有提交压缩为单个提交',
+          branch: '分支: 要合并到当前分支的分支'
+        },
+        rebase: {
+          interactive: '-i: 启动交互式 rebase',
+          onto: '--onto: 基于不同的基础提交进行 rebase',
+          continue: '--continue: 解决冲突后继续 rebase',
+          abort: '--abort: 中止 rebase 操作',
+          branch: '分支: 要 rebase 到的分支'
+        },
+        tag: {
+          annotated: '-a: 创建带注释的标签',
+          message: '-m: 带注释标签的消息'
+        },
+        log: {
+          count: '-n: 限制显示的提交数量',
+          graph: '--graph: 显示提交图',
+          oneline: '--oneline: 每行显示一个提交',
+          author: '--author: 按作者筛选提交',
+          search: '--grep: 搜索提交信息'
+        },
+        status: {
+          short: '-s: 以简短格式显示输出'
+        },
+        clone: {
+          depth: '--depth: 创建有限历史的浅克隆',
+          branch: '-b: 克隆特定分支',
+          directory: '目录: 克隆的本地目录名称'
+        },
+        checkout: {
+          create: '-b: 创建新分支并切换到它',
+          file: '文件: 从提交中恢复特定文件'
+        },
+        add: {
+          all: '-A: 暂存所有更改（已修改、已删除和未跟踪）',
+          patch: '-p: 交互式选择要暂存的代码块',
+          update: '-u: 仅暂存已跟踪的文件',
+          files: '文件: 要暂存的特定文件或路径'
+        },
+        diff: {
+          staged: '--staged: 显示暂存区中的更改',
+          stat: '--stat: 显示更改统计信息',
+          commit1: '提交1: 要比较的第一个提交',
+          commit2: '提交2: 要比较的第二个提交',
+          file: '文件: 显示特定文件的差异'
+        },
+        show: {
+          stat: '--stat: 显示更改统计信息',
+          nameOnly: '--name-only: 仅显示文件名',
+          file: '文件: 显示提交中的特定文件'
+        },
+        revert: {
+          noCommit: '--no-commit: 暂存更改但不提交',
+          noEdit: '--no-edit: 使用默认提交信息'
+        },
+        cherryPick: {
+          noCommit: '--no-commit: 暂存更改但不提交',
+          edit: '--edit: 编辑提交信息'
+        },
+        reset: {
+          soft: '--soft: 重置 HEAD 但保留更改在暂存区',
+          mixed: '--mixed: 重置 HEAD 并取消暂存更改（默认）',
+          hard: '--hard: 重置 HEAD 并丢弃所有更改',
+          target: '目标: 要重置到的提交、分支或标签'
+        },
+        stash: {
+          message: '消息: 暂存的可选消息'
+        },
+        config: {
+          global: '--global: 全局设置配置',
+          local: '--local: 为当前仓库设置配置',
+          key: '键: 要获取/设置的配置键',
+          value: '值: 要设置的配置值'
+        },
+        init: {
+          bare: '--bare: 创建裸仓库',
+          template: '--template: 使用模板目录'
+        },
+        rm: {
+          cached: '--cached: 仅从索引中删除，保留文件',
+          recursive: '-r: 递归删除目录',
+          force: '-f: 即使文件有修改也强制删除'
+        },
+        clean: {
+          dryRun: '-n: 显示将要删除的内容而不实际删除',
+          force: '-f: 强制删除未跟踪的文件',
+          interactive: '-i: 交互模式选择要删除的内容',
+          directory: '-d: 也删除未跟踪的目录'
+        },
+        blame: {
+          showEmail: '-e: 显示作者邮箱而不是姓名',
+          noLineNumbers: '-n: 隐藏行号',
+          lineRange: '-L: 仅显示指定的行范围'
+        },
+        grep: {
+          caseInsensitive: '-i: 不区分大小写搜索',
+          recursive: '-r: 在子目录中递归搜索',
+          noLineNumbers: '-n: 在输出中隐藏行号',
+          extendedRegex: '-E: 使用扩展正则表达式'
+        },
+        reflog: {
+          showAll: '--all: 显示所有引用',
+          count: '-n: 限制显示的条目数'
+        },
+        archive: {
+          tar: '--format=tar: 创建 tar 归档',
+          zip: '--format=zip: 创建 zip 归档',
+          prefix: '--prefix: 为归档中的所有路径添加前缀'
+        },
+        describe: {
+          tags: '--tags: 使用标签而不是带注释的标签',
+          all: '--all: 使用任何引用而不仅仅是标签',
+          long: '--long: 始终使用长格式'
+        },
+        shortlog: {
+          count: '-n: 按提交数量排序',
+          email: '-e: 显示邮箱地址',
+          committer: '-c: 按提交者而不是作者分组'
+        },
+        switch: {
+          create: '-c: 创建新分支并切换到它',
+          track: '--track: 为新分支设置跟踪',
+          detach: '--detach: 在指定提交处分离 HEAD'
+        },
+        restore: {
+          staged: '--staged: 从索引恢复',
+          worktree: '--worktree: 从工作树恢复',
+          source: '--source: 从指定提交或分支恢复'
+        },
+        apply: {
+          check: '--check: 检查补丁是否可应用而不实际应用',
+          reverse: '--reverse: 反向应用补丁',
+          '3way': '--3way: 如果补丁失败则使用三方合并'
+        },
+        formatPatch: {
+          numbered: '--numbered: 按顺序编号补丁',
+          coverLetter: '--cover-letter: 生成封面信',
+          output: '-o: 补丁文件的输出目录'
+        },
+        submodule: {
+          recursive: '--recursive: 递归更新子模块',
+          path: '路径: 子模块路径',
+          url: 'URL: 子模块仓库 URL'
+        },
+        maintenance: {
+          gc: 'gc: 运行垃圾回收',
+          commitGraph: 'commit-graph: 更新提交图',
+          prefetch: 'prefetch: 从远程预取对象',
+          looseObjects: 'loose-objects: 清理松散对象',
+          incrementalRepack: 'incremental-repack: 增量重新打包对象'
+        }
       }
     },
     dockerCommands: {
@@ -3449,6 +3892,83 @@ const translations = {
         network: '管理网络。创建、列出、检查和删除 Docker 网络。',
         volume: '管理卷。创建、列出、检查和删除 Docker 卷。',
         compose: '定义和运行多容器 Docker 应用程序。管理在 docker-compose.yml 中定义的应用程序。'
+      },
+      parameterDescriptions: '参数说明',
+      paramDescriptions: {
+        run: {
+          detached: '-d: 在后台运行容器（分离模式）',
+          interactive: '-i: 即使未附加也保持 STDIN 打开',
+          tty: '-t: 分配伪终端',
+          name: '--name: 为容器分配名称',
+          port: '-p: 将容器端口发布到主机',
+          volume: '-v: 绑定挂载卷',
+          env: '-e: 设置环境变量',
+          restart: '--restart: 重启策略（no、on-failure、always、unless-stopped）',
+          remove: '--rm: 容器退出时自动删除'
+        },
+        build: {
+          tag: '-t: 以 name:tag 格式命名和标记',
+          file: '-f: Dockerfile 名称（默认为 Dockerfile）',
+          noCache: '--no-cache: 构建镜像时不使用缓存',
+          pull: '--pull: 始终尝试拉取更新的镜像版本',
+          target: '--target: 设置要构建的目标构建阶段'
+        },
+        ps: {
+          all: '-a: 显示所有容器（默认仅显示正在运行的）',
+          latest: '-l: 显示最新创建的容器',
+          filter: '--filter: 根据提供的条件过滤输出'
+        },
+        images: {
+          all: '-a: 显示所有镜像（默认隐藏中间镜像）',
+          filter: '--filter: 根据提供的条件过滤输出'
+        },
+        rm: {
+          force: '-f: 强制删除正在运行的容器',
+          volumes: '-v: 删除与容器关联的卷'
+        },
+        rmi: {
+          force: '-f: 强制删除镜像',
+          noPrune: '--no-prune: 不删除未标记的父镜像'
+        },
+        exec: {
+          interactive: '-i: 即使未附加也保持 STDIN 打开',
+          tty: '-t: 分配伪终端',
+          user: '-u: 用户名或 UID（格式：<name|uid>[:<group|gid>]）',
+          workdir: '-w: 容器内的工作目录'
+        },
+        logs: {
+          follow: '-f: 跟踪日志输出',
+          tail: '--tail: 从日志末尾显示的行数',
+          since: '--since: 显示自时间戳或相对时间以来的日志',
+          until: '--until: 显示时间戳或相对时间之前的日志',
+          timestamps: '-t: 显示时间戳'
+        },
+        commit: {
+          pause: '-p: 提交期间暂停容器',
+          author: '--author: 作者（例如："John Doe <john@example.com>"）',
+          message: '-m: 提交消息'
+        },
+        search: {
+          limit: '--limit: 搜索结果的最大数量',
+          stars: '--stars: 最小星数'
+        },
+        stats: {
+          all: '-a: 显示所有容器（默认仅显示正在运行的）',
+          noStream: '--no-stream: 禁用流式统计并仅拉取第一个结果',
+          format: '--format: 使用 Go 模板美化打印镜像'
+        },
+        network: {
+          driver: '--driver: 网络驱动程序（bridge、host、overlay 等）',
+          subnet: '--subnet: CIDR 格式的子网',
+          gateway: '--gateway: 主子网的网关'
+        },
+        volume: {
+          driver: '--driver: 卷驱动程序名称'
+        },
+        compose: {
+          detached: '-d: 在后台运行容器',
+          build: '--build: 启动容器前构建镜像'
+        }
       }
     },
     qrCode: {

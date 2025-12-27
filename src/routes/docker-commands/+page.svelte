@@ -18,6 +18,7 @@
   let commandType = $state<CommandType>('run');
   let generatedCommand = $state('');
   let commandDescription = $state('');
+  let parameterDescriptions = $state<string[]>([]);
   let copied = $state(false);
   const STORAGE_KEY = 'dockerCommands.state.v1';
   let hasLoadedFromStorage = false;
@@ -199,6 +200,7 @@
   $effect(() => {
     commandType;
     commandDescription = getCommandDescription(commandType);
+    parameterDescriptions = getParameterDescriptions(commandType);
     saveState();
   });
 
@@ -626,10 +628,94 @@
 
     generatedCommand = cmd;
     commandDescription = getCommandDescription(commandType);
+    parameterDescriptions = getParameterDescriptions(commandType);
   }
 
   function getCommandDescription(type: CommandType): string {
     return t(`dockerCommands.descriptions.${type}`);
+  }
+
+  function getParameterDescriptions(type: CommandType): string[] {
+    const descriptions: string[] = [];
+    
+    switch (type) {
+      case 'run':
+        if (runDetached) descriptions.push(t('dockerCommands.paramDescriptions.run.detached'));
+        if (runInteractive) descriptions.push(t('dockerCommands.paramDescriptions.run.interactive'));
+        if (runTty) descriptions.push(t('dockerCommands.paramDescriptions.run.tty'));
+        if (runName) descriptions.push(t('dockerCommands.paramDescriptions.run.name'));
+        if (runPort) descriptions.push(t('dockerCommands.paramDescriptions.run.port'));
+        if (runVolume) descriptions.push(t('dockerCommands.paramDescriptions.run.volume'));
+        if (runEnv) descriptions.push(t('dockerCommands.paramDescriptions.run.env'));
+        if (runRestart) descriptions.push(t('dockerCommands.paramDescriptions.run.restart'));
+        if (runRemove) descriptions.push(t('dockerCommands.paramDescriptions.run.remove'));
+        break;
+      case 'build':
+        if (buildTag) descriptions.push(t('dockerCommands.paramDescriptions.build.tag'));
+        if (buildFile) descriptions.push(t('dockerCommands.paramDescriptions.build.file'));
+        if (buildNoCache) descriptions.push(t('dockerCommands.paramDescriptions.build.noCache'));
+        if (buildPull) descriptions.push(t('dockerCommands.paramDescriptions.build.pull'));
+        if (buildTarget) descriptions.push(t('dockerCommands.paramDescriptions.build.target'));
+        break;
+      case 'ps':
+        if (psAll) descriptions.push(t('dockerCommands.paramDescriptions.ps.all'));
+        if (psLatest) descriptions.push(t('dockerCommands.paramDescriptions.ps.latest'));
+        if (psFilter) descriptions.push(t('dockerCommands.paramDescriptions.ps.filter'));
+        break;
+      case 'images':
+        if (imagesAll) descriptions.push(t('dockerCommands.paramDescriptions.images.all'));
+        if (imagesFilter) descriptions.push(t('dockerCommands.paramDescriptions.images.filter'));
+        break;
+      case 'rm':
+        if (rmForce) descriptions.push(t('dockerCommands.paramDescriptions.rm.force'));
+        if (rmVolumes) descriptions.push(t('dockerCommands.paramDescriptions.rm.volumes'));
+        break;
+      case 'rmi':
+        if (rmiForce) descriptions.push(t('dockerCommands.paramDescriptions.rmi.force'));
+        if (rmiNoPrune) descriptions.push(t('dockerCommands.paramDescriptions.rmi.noPrune'));
+        break;
+      case 'exec':
+        if (execInteractive) descriptions.push(t('dockerCommands.paramDescriptions.exec.interactive'));
+        if (execTty) descriptions.push(t('dockerCommands.paramDescriptions.exec.tty'));
+        if (execUser) descriptions.push(t('dockerCommands.paramDescriptions.exec.user'));
+        if (execWorkdir) descriptions.push(t('dockerCommands.paramDescriptions.exec.workdir'));
+        break;
+      case 'logs':
+        if (logsFollow) descriptions.push(t('dockerCommands.paramDescriptions.logs.follow'));
+        if (logsTail) descriptions.push(t('dockerCommands.paramDescriptions.logs.tail'));
+        if (logsSince) descriptions.push(t('dockerCommands.paramDescriptions.logs.since'));
+        if (logsUntil) descriptions.push(t('dockerCommands.paramDescriptions.logs.until'));
+        if (logsTimestamps) descriptions.push(t('dockerCommands.paramDescriptions.logs.timestamps'));
+        break;
+      case 'commit':
+        if (commitPause) descriptions.push(t('dockerCommands.paramDescriptions.commit.pause'));
+        if (commitAuthor) descriptions.push(t('dockerCommands.paramDescriptions.commit.author'));
+        if (commitMessage) descriptions.push(t('dockerCommands.paramDescriptions.commit.message'));
+        break;
+      case 'search':
+        if (searchLimit) descriptions.push(t('dockerCommands.paramDescriptions.search.limit'));
+        if (searchStars) descriptions.push(t('dockerCommands.paramDescriptions.search.stars'));
+        break;
+      case 'stats':
+        if (statsAll) descriptions.push(t('dockerCommands.paramDescriptions.stats.all'));
+        if (statsNoStream) descriptions.push(t('dockerCommands.paramDescriptions.stats.noStream'));
+        if (statsFormat) descriptions.push(t('dockerCommands.paramDescriptions.stats.format'));
+        break;
+      case 'network':
+        if (networkDriver !== 'bridge') descriptions.push(t('dockerCommands.paramDescriptions.network.driver'));
+        if (networkSubnet) descriptions.push(t('dockerCommands.paramDescriptions.network.subnet'));
+        if (networkGateway) descriptions.push(t('dockerCommands.paramDescriptions.network.gateway'));
+        break;
+      case 'volume':
+        if (volumeDriver !== 'local') descriptions.push(t('dockerCommands.paramDescriptions.volume.driver'));
+        break;
+      case 'compose':
+        if (composeDetached) descriptions.push(t('dockerCommands.paramDescriptions.compose.detached'));
+        if (composeBuild) descriptions.push(t('dockerCommands.paramDescriptions.compose.build'));
+        break;
+    }
+    
+    return descriptions;
   }
 
   async function copyCommand() {
@@ -762,6 +848,7 @@
     composeBuild;
     composeService;
     generateCommand();
+    parameterDescriptions = getParameterDescriptions(commandType);
   });
 </script>
 
@@ -1033,9 +1120,24 @@
                 <p class="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">
                   {t('dockerCommands.description')}
                 </p>
-                <p class="text-sm text-blue-800 dark:text-blue-300">
+                <p class="text-sm text-blue-800 dark:text-blue-300 mb-2">
                   {commandDescription}
                 </p>
+                {#if parameterDescriptions.length > 0}
+                  <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
+                    <p class="text-xs font-medium text-blue-900 dark:text-blue-200 mb-1">
+                      {t('dockerCommands.parameterDescriptions')}
+                    </p>
+                    <ul class="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                      {#each parameterDescriptions as desc}
+                        <li class="flex items-start gap-1">
+                          <span class="text-blue-500 dark:text-blue-400 mt-0.5">•</span>
+                          <span>{desc}</span>
+                        </li>
+                      {/each}
+                    </ul>
+                  </div>
+                {/if}
               </div>
             </div>
           </div>
