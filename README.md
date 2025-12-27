@@ -49,6 +49,12 @@
 - Real-time validation
 - Copy formatted JSON to clipboard
 
+### ⚙️ Config Converter
+- Convert between multiple configuration file formats: JSON, YAML, TOML, INI, XML, Properties, ENV, TOON
+- Real-time conversion and format validation
+- Automatic conversion history saving
+- Bidirectional conversion support for project migration and configuration unification
+
 ### 🔧 Encode/Decode
 - **Base64**: Encode/decode text and images
 - **URL**: Encode/decode URL strings
@@ -66,6 +72,30 @@
   - Automatically detects body parameters (`-d`, `--data`, `--data-raw`, `--data-binary`, `--data-urlencode`, `-F`, `--form`) and sets POST method when no explicit method is specified (following cURL best practices)
   - Formatted cURL command output for easy readability
   - Proper shell string escaping for correct command execution
+
+### 🔌 WebSocket Tester
+- Support for WebSocket (ws://) and secure WebSocket (wss://) connections
+- Real-time message sending and receiving
+- Message history recording and viewing
+- Connection status monitoring
+- Support for custom message formats
+- Convenient for developing and debugging real-time applications and monitoring systems
+
+### 🐳 Docker Commands Generator
+- Visually generate common Docker commands
+- Container management: run, stop, delete, view logs, etc.
+- Image operations: build, pull, push, delete, etc.
+- Network and volume management
+- Support for custom parameters and options
+- No need to memorize complex command parameters, generate accurate commands through interface operations
+
+### 📦 Git Commands Generator
+- Quickly generate common Git commands
+- Commit management: add, commit, push, pull, etc.
+- Branch operations: create, switch, merge, delete, etc.
+- Remote repository management
+- History viewing and rollback
+- Especially suitable for Git beginners and scenarios requiring quick generation of complex commands
 
 ### 📊 Text Statistics
 - Character count (with/without spaces)
@@ -94,6 +124,13 @@
 - Adjustable timeout and concurrency controls for faster scans
 - Quick presets for top/common ports
 - Displays open ports with response latency
+
+### 🌍 IP/Domain Lookup
+- Query IP address geographic location and ISP information
+- Domain resolution and reverse lookup
+- Network details display
+- Support for batch queries
+- Convenient for network diagnosis, security analysis, and geographic location positioning
 
 ### 🎨 Color Converter
 - Convert between color formats: HEX, RGB, HSL, HWB, LCH, CMYK, color names
