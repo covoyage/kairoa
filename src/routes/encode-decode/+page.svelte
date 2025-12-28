@@ -5,14 +5,14 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   
-  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html';
+  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html' | 'unicode';
   
   let encodeType = $state<EncodeType>('base64');
   
   // Check URL parameter for type
   $effect(() => {
     const typeParam = $page.url.searchParams.get('type');
-    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt' || typeParam === 'html') {
+    if (typeParam === 'base64' || typeParam === 'image-base64' || typeParam === 'url' || typeParam === 'ascii' || typeParam === 'jwt' || typeParam === 'html' || typeParam === 'unicode') {
       encodeType = typeParam as EncodeType;
     }
   });
@@ -21,6 +21,10 @@
   let isEncoding = $state(true);
   let copied = $state(false);
   let selectedImageFile = $state<File | null>(null);
+  
+  // Unicode encoding modes
+  type UnicodeMode = 'uplus' | 'escape' | 'htmlHex' | 'htmlDec' | 'url' | 'python';
+  let unicodeMode = $state<UnicodeMode>('uplus');
   
   // JWT specific state
   let jwtToken = $state('');
@@ -289,6 +293,192 @@
     }
   }
 
+  function encodeUnicode() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      const result: string[] = [];
+      for (let i = 0; i < input.length; i++) {
+        const codePoint = input.codePointAt(i);
+        if (codePoint !== undefined) {
+          // 处理代理对（surrogate pairs）
+          if (codePoint > 0xFFFF) {
+            if (unicodeMode === 'uplus') {
+              result.push(`U+${codePoint.toString(16).toUpperCase().padStart(6, '0')}`);
+            } else if (unicodeMode === 'escape') {
+              // \uXXXX 格式不支持大于 0xFFFF 的码点，需要拆分为代理对
+              const high = Math.floor((codePoint - 0x10000) / 0x400) + 0xD800;
+              const low = ((codePoint - 0x10000) % 0x400) + 0xDC00;
+              result.push(`\\u${high.toString(16).toUpperCase().padStart(4, '0')}\\u${low.toString(16).toUpperCase().padStart(4, '0')}`);
+            } else if (unicodeMode === 'htmlHex') {
+              result.push(`&#x${codePoint.toString(16).toUpperCase()};`);
+            } else if (unicodeMode === 'htmlDec') {
+              result.push(`&#${codePoint};`);
+            } else if (unicodeMode === 'url') {
+              // URL 编码不支持大于 0xFFFF 的码点，需要拆分为代理对
+              const high = Math.floor((codePoint - 0x10000) / 0x400) + 0xD800;
+              const low = ((codePoint - 0x10000) % 0x400) + 0xDC00;
+              result.push(`%u${high.toString(16).toUpperCase().padStart(4, '0')}%u${low.toString(16).toUpperCase().padStart(4, '0')}`);
+            } else if (unicodeMode === 'python') {
+              result.push(`\\U${codePoint.toString(16).toUpperCase().padStart(8, '0')}`);
+            }
+            i++; // 跳过代理对的第二个字符
+          } else {
+            if (unicodeMode === 'uplus') {
+              result.push(`U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`);
+            } else if (unicodeMode === 'escape') {
+              result.push(`\\u${codePoint.toString(16).toUpperCase().padStart(4, '0')}`);
+            } else if (unicodeMode === 'htmlHex') {
+              result.push(`&#x${codePoint.toString(16).toUpperCase()};`);
+            } else if (unicodeMode === 'htmlDec') {
+              result.push(`&#${codePoint};`);
+            } else if (unicodeMode === 'url') {
+              result.push(`%u${codePoint.toString(16).toUpperCase().padStart(4, '0')}`);
+            } else if (unicodeMode === 'python') {
+              result.push(`\\U${codePoint.toString(16).toUpperCase().padStart(8, '0')}`);
+            }
+          }
+        }
+      }
+      // 根据模式决定是否添加分隔符
+      if (unicodeMode === 'uplus') {
+        output = result.join(' ');
+      } else if (unicodeMode === 'url') {
+        output = result.join('');
+      } else {
+        output = result.join('');
+      }
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    }
+  }
+
+  function decodeUnicode() {
+    if (!output.trim()) {
+      input = '';
+      return;
+    }
+
+    try {
+      const codePoints: number[] = [];
+      
+      if (unicodeMode === 'uplus') {
+        // 从 U+XXXX 格式解码
+        const codePointRegex = /U\+([0-9A-Fa-f]{4,6})/g;
+        let match;
+        
+        while ((match = codePointRegex.exec(output)) !== null) {
+          const codePoint = parseInt(match[1], 16);
+          if (codePoint > 0x10FFFF) {
+            throw new Error(`Invalid Unicode code point: U+${match[1]}`);
+          }
+          codePoints.push(codePoint);
+        }
+      } else if (unicodeMode === 'escape') {
+        // 从 \uXXXX 格式解码
+        const unicodeRegex = /\\u([0-9a-fA-F]{4})/g;
+        let match;
+        const surrogatePairs: number[] = [];
+        
+        while ((match = unicodeRegex.exec(output)) !== null) {
+          const code = parseInt(match[1], 16);
+          surrogatePairs.push(code);
+        }
+        
+        // 处理代理对
+        for (let i = 0; i < surrogatePairs.length; i++) {
+          const high = surrogatePairs[i];
+          if (high >= 0xD800 && high <= 0xDBFF && i + 1 < surrogatePairs.length) {
+            const low = surrogatePairs[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+              // 这是一个代理对
+              const codePoint = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
+              codePoints.push(codePoint);
+              i++; // 跳过下一个字符
+              continue;
+            }
+          }
+          // 普通字符
+          codePoints.push(high);
+        }
+      } else if (unicodeMode === 'htmlHex') {
+        // 从 &#xXXXX; 格式解码
+        const htmlHexRegex = /&#x([0-9A-Fa-f]+);/g;
+        let match;
+        
+        while ((match = htmlHexRegex.exec(output)) !== null) {
+          const codePoint = parseInt(match[1], 16);
+          if (codePoint > 0x10FFFF) {
+            throw new Error(`Invalid Unicode code point: &#x${match[1]};`);
+          }
+          codePoints.push(codePoint);
+        }
+      } else if (unicodeMode === 'htmlDec') {
+        // 从 &#XXXX; 格式解码
+        const htmlDecRegex = /&#(\d+);/g;
+        let match;
+        
+        while ((match = htmlDecRegex.exec(output)) !== null) {
+          const codePoint = parseInt(match[1], 10);
+          if (codePoint > 0x10FFFF) {
+            throw new Error(`Invalid Unicode code point: &#${match[1]};`);
+          }
+          codePoints.push(codePoint);
+        }
+      } else if (unicodeMode === 'url') {
+        // 从 %uXXXX 格式解码
+        const urlRegex = /%u([0-9a-fA-F]{4})/g;
+        let match;
+        const surrogatePairs: number[] = [];
+        
+        while ((match = urlRegex.exec(output)) !== null) {
+          const code = parseInt(match[1], 16);
+          surrogatePairs.push(code);
+        }
+        
+        // 处理代理对
+        for (let i = 0; i < surrogatePairs.length; i++) {
+          const high = surrogatePairs[i];
+          if (high >= 0xD800 && high <= 0xDBFF && i + 1 < surrogatePairs.length) {
+            const low = surrogatePairs[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+              // 这是一个代理对
+              const codePoint = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
+              codePoints.push(codePoint);
+              i++; // 跳过下一个字符
+              continue;
+            }
+          }
+          // 普通字符
+          codePoints.push(high);
+        }
+      } else if (unicodeMode === 'python') {
+        // 从 \UXXXXXXXX 格式解码
+        const pythonRegex = /\\U([0-9A-Fa-f]{8})/g;
+        let match;
+        
+        while ((match = pythonRegex.exec(output)) !== null) {
+          const codePoint = parseInt(match[1], 16);
+          if (codePoint > 0x10FFFF) {
+            throw new Error(`Invalid Unicode code point: \\U${match[1]}`);
+          }
+          codePoints.push(codePoint);
+        }
+      }
+      
+      if (codePoints.length === 0) {
+        throw new Error('No valid Unicode code points found');
+      }
+      
+      input = String.fromCodePoint(...codePoints);
+    } catch (error) {
+      input = `Error: ${error instanceof Error ? error.message : 'Invalid Unicode code point format'}`;
+    }
+  }
+
   function process() {
     if (encodeType === 'base64') {
       if (isEncoding) {
@@ -319,6 +509,12 @@
         encodeHTML();
       } else {
         decodeHTML();
+      }
+    } else if (encodeType === 'unicode') {
+      if (isEncoding) {
+        encodeUnicode();
+      } else {
+        decodeUnicode();
       }
     }
   }
@@ -454,6 +650,10 @@
     const fileInput = document.getElementById('image-file-input') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
+    }
+    // 重置 Unicode 模式
+    if (type !== 'unicode') {
+      unicodeMode = 'uplus';
     }
   }
   
@@ -596,6 +796,13 @@
       }
     }
   });
+
+  // 当 Unicode 模式改变时，重新处理
+  $effect(() => {
+    if (encodeType === 'unicode' && (input || output)) {
+      process();
+    }
+  });
 </script>
 
 <div class="flex flex-col h-full w-full ml-0 mr-0 p-2">
@@ -668,6 +875,17 @@
           >
             {t('encodeDecode.html')}
             {#if encodeType === 'html'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchEncodeType('unicode')}
+            class="px-4 py-2 relative transition-colors font-medium {encodeType === 'unicode'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            {t('encodeDecode.unicode')}
+            {#if encodeType === 'unicode'}
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
@@ -833,22 +1051,41 @@
         <!-- 左侧输入区域 -->
         <div class="col-span-5 flex flex-col space-y-2">
           <div class="flex items-center justify-between">
-            <div class="block text-base font-bold text-gray-700 dark:text-gray-300">
-              {encodeType === 'base64' 
-                ? t('encodeDecode.plaintext')
-                : encodeType === 'image-base64'
-                ? t('encodeDecode.image')
-                : t('encodeDecode.plaintext')}
+            <div class="flex items-center gap-3">
+              <div class="block text-base font-bold text-gray-700 dark:text-gray-300">
+                {encodeType === 'base64' 
+                  ? t('encodeDecode.plaintext')
+                  : encodeType === 'image-base64'
+                  ? t('encodeDecode.image')
+                  : encodeType === 'unicode'
+                  ? t('encodeDecode.plaintext')
+                  : t('encodeDecode.plaintext')}
+              </div>
+              {#if encodeType === 'unicode'}
+                <select
+                  bind:value={unicodeMode}
+                  onchange={() => { if (input || output) process(); }}
+                  class="px-2 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:border-primary-500 dark:focus:border-primary-400 transition-all appearance-none cursor-pointer h-6"
+                  style="min-width: 110px; padding-right: 1.75rem; background-image: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3E%3Cpath stroke=%27%236b7280%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3E%3C/svg%3E'); background-position: right 0.4rem center; background-repeat: no-repeat; background-size: 1em 1em;"
+                >
+                  <option value="uplus">{t('encodeDecode.unicodeModeUPlus')}</option>
+                  <option value="escape">{t('encodeDecode.unicodeModeEscape')}</option>
+                  <option value="htmlHex">{t('encodeDecode.unicodeModeHtmlHex')}</option>
+                  <option value="htmlDec">{t('encodeDecode.unicodeModeHtmlDec')}</option>
+                  <option value="url">{t('encodeDecode.unicodeModeUrl')}</option>
+                  <option value="python">{t('encodeDecode.unicodeModePython')}</option>
+                </select>
+              {/if}
             </div>
             {#if !isEncoding && input}
               <div class="flex items-center gap-2">
                 {#if encodeType === 'image-base64' && isValidImageDataUri(input)}
                   <button
                     onclick={downloadImage}
-                    class="btn-secondary text-xs px-3 py-1.5 transition-all duration-200 flex items-center gap-1"
+                    class="btn-secondary text-xs px-2 py-0.5 h-6 transition-all duration-200 flex items-center gap-1"
                     title={t('encodeDecode.downloadImage')}
                   >
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                     {t('encodeDecode.download')}
@@ -856,11 +1093,11 @@
                 {/if}
                 <button
                   onclick={copyToClipboard}
-                  class="btn-secondary text-xs px-3 py-1.5 transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                  class="btn-secondary text-xs px-2 py-0.5 h-6 transition-all duration-200 flex items-center {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
                 >
                   {#if copied}
                     <span class="flex items-center gap-1">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       {t('common.copied')}
@@ -942,7 +1179,7 @@
                 bind:value={input}
                 readonly={!isEncoding}
                 placeholder={isEncoding 
-                  ? (encodeType === 'base64' ? t('encodeDecode.encodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.encodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.encodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.encodeHTMLPlaceholder') : t('encodeDecode.encodeASCIIPlaceholder'))
+                  ? (encodeType === 'base64' ? t('encodeDecode.encodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.encodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.encodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.encodeHTMLPlaceholder') : encodeType === 'unicode' ? t('encodeDecode.encodeUnicodePlaceholder') : t('encodeDecode.encodeASCIIPlaceholder'))
                   : ''}
                 class="textarea h-full resize-none {!isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} {!isEncoding && input ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
               ></textarea>
@@ -993,16 +1230,23 @@
                 ? t('encodeDecode.urlEncoded')
                 : encodeType === 'html'
                 ? t('encodeDecode.html')
+                : encodeType === 'unicode'
+                ? (unicodeMode === 'uplus' ? t('encodeDecode.unicodeEncoded') 
+                  : unicodeMode === 'escape' ? t('encodeDecode.unicodeEscapeEncoded')
+                  : unicodeMode === 'htmlHex' ? t('encodeDecode.unicodeHtmlHexEncoded')
+                  : unicodeMode === 'htmlDec' ? t('encodeDecode.unicodeHtmlDecEncoded')
+                  : unicodeMode === 'url' ? t('encodeDecode.unicodeUrlEncoded')
+                  : t('encodeDecode.unicodePythonEncoded'))
                 : t('encodeDecode.ascii')}
             </div>
             {#if isEncoding && output}
               <button
                 onclick={copyToClipboard}
-                class="btn-secondary text-xs px-3 py-1.5 transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+                class="btn-secondary text-xs px-2 py-0.5 h-6 transition-all duration-200 flex items-center {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
               >
                 {#if copied}
                   <span class="flex items-center gap-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                     {t('common.copied')}
@@ -1018,7 +1262,7 @@
               bind:value={output}
               readonly={isEncoding}
               placeholder={!isEncoding 
-                ? (encodeType === 'base64' ? t('encodeDecode.decodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.decodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.decodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.decodeHTMLPlaceholder') : t('encodeDecode.decodeASCIIPlaceholder'))
+                ? (encodeType === 'base64' ? t('encodeDecode.decodeBase64Placeholder') : encodeType === 'image-base64' ? t('encodeDecode.decodeImageBase64Placeholder') : encodeType === 'url' ? t('encodeDecode.decodeURLPlaceholder') : encodeType === 'html' ? t('encodeDecode.decodeHTMLPlaceholder') : encodeType === 'unicode' ? t('encodeDecode.decodeUnicodePlaceholder') : t('encodeDecode.decodeASCIIPlaceholder'))
                 : ''}
               class="textarea h-full resize-none font-mono text-sm {copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} {isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} transition-colors duration-300"
             ></textarea>
