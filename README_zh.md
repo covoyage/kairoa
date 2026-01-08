@@ -203,6 +203,34 @@ xattr -r -c /Applications/kairoa.app
 
 此命令会移除 macOS 为下载的应用添加的扩展属性，允许您在没有 Gatekeeper 警告的情况下运行应用。
 
+### Linux
+
+应用程序会自动处理 Linux 系统上常见的显示问题。如果您仍然遇到白屏，可能是由于访问图形设备的权限不足导致的。
+
+**自动处理：**
+
+应用程序在启动时会自动设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 来解决 NVIDIA GPU 与 WebKit2GTK 的兼容性问题。如果硬件加速失败，会自动回退到软件渲染。
+
+**手动解决方法（如果自动处理不起作用）：**
+
+如果您仍然遇到问题，可以手动将您的用户添加到 `video` 和 `render` 组：
+
+```bash
+sudo usermod -a -G video,render $USER
+```
+
+将用户添加到这些组后，您需要注销并重新登录（或重启系统）才能使更改生效。
+
+**替代方案：**
+
+您也可以显式启用软件渲染来运行应用程序：
+
+```bash
+LIBGL_ALWAYS_SOFTWARE=1 ./kairoa
+```
+
+**注意：** 软件渲染可能会影响性能，但应该能解决显示问题。
+
 ## 开发
 
 1. 克隆仓库：

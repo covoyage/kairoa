@@ -203,6 +203,34 @@ xattr -r -c /Applications/kairoa.app
 
 This command removes the extended attributes that macOS applies to downloaded applications, allowing you to run the app without Gatekeeper warnings.
 
+### Linux
+
+The application automatically handles common display issues on Linux systems. If you still encounter a white screen, it may be due to insufficient permissions for accessing graphics devices.
+
+**Automatic Solution:**
+
+The application automatically sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` on startup to resolve compatibility issues with NVIDIA GPUs and WebKit2GTK. If hardware acceleration fails, it will automatically fall back to software rendering.
+
+**Manual Solution (if automatic handling doesn't work):**
+
+If you still experience issues, you can manually add your user to the `video` and `render` groups:
+
+```bash
+sudo usermod -a -G video,render $USER
+```
+
+After adding your user to these groups, you need to log out and log back in (or restart your system) for the changes to take effect.
+
+**Alternative solution:**
+
+You can also run the application with software rendering explicitly enabled:
+
+```bash
+LIBGL_ALWAYS_SOFTWARE=1 ./kairoa
+```
+
+**Note:** Software rendering may have performance implications but should resolve display issues.
+
 ## development
 
 1. Clone the repository:

@@ -1287,6 +1287,29 @@ fn greet(name: &str) -> String {
 pub fn run() {
     use tauri::{Manager, Emitter};
     
+    // 在 Linux 系统上，设置环境变量以解决白屏问题
+    // 这主要是由于 WebKit2GTK 与 NVIDIA GPU 的兼容性问题
+    #[cfg(target_os = "linux")]
+    {
+        // 禁用 WebKit 的 DMA-BUF 渲染器，解决 NVIDIA GPU 上的白屏问题
+        if std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+        
+        // 如果用户没有设置，尝试使用软件渲染作为后备方案
+        if std::env::var("LIBGL_ALWAYS_SOFTWARE").is_err() {
+            // 尝试检测是否有权限访问 /dev/dri/ 设备
+            let has_dri_access = std::path::Path::new("/dev/dri")
+                .read_dir()
+                .is_ok();
+            
+            // 如果没有访问权限，设置软件渲染环境变量
+            if !has_dri_access {
+                std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+            }
+        }
+    }
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
