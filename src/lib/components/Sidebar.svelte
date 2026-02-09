@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -102,6 +102,7 @@
     { path: '/config-converter', icon: FileCode, key: 'nav.configConverter' },
     { path: '/env-manager', icon: KeyRound, key: 'nav.envManager' },
     { path: '/mime-type', icon: FileType, key: 'nav.mimeType' },
+    { path: '/user-agent', icon: MonitorSmartphone, key: 'nav.userAgent' },
   { path: '/data-converter', icon: FileSpreadsheet, key: 'nav.dataConverter' },
     { path: '/keycode', icon: Keyboard, key: 'nav.keycode' },
     { path: '/password-strength', icon: Shield, key: 'nav.passwordStrength' },

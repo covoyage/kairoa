@@ -53,6 +53,7 @@ const translations = {
       hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures',
       envManagerDesc: 'Manage environment variables with import/export support',
       mimeTypeDesc: 'Query MIME types by file extension or MIME type string',
+      userAgentDesc: 'Parse and analyze User-Agent strings to extract browser, OS, and device information',
       asciiArtDesc: 'Convert text to ASCII art'
     },
     nav: {
@@ -100,6 +101,7 @@ const translations = {
       configConverter: 'Config Converter',
       envManager: 'Environment Variables Manager',
       mimeType: 'MIME Type Lookup',
+      userAgent: 'User-Agent Parser',
       asciiArt: 'ASCII Art',
       settings: 'Settings'
     },
@@ -2511,6 +2513,7 @@ const translations = {
       hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名',
       envManagerDesc: '管理环境变量，支持导入导出',
       mimeTypeDesc: '通过文件扩展名或 MIME 类型字符串查询 MIME 类型',
+      userAgentDesc: '解析和分析 User-Agent 字符串，提取浏览器、操作系统和设备信息',
       asciiArtDesc: '将文本转换为 ASCII 艺术字'
     },
     nav: {
@@ -2558,6 +2561,7 @@ const translations = {
       configConverter: '配置转换器',
       envManager: '环境变量管理器',
       mimeType: 'MIME 类型查询',
+      userAgent: 'User-Agent 解析器',
       asciiArt: 'ASCII 艺术',
       settings: '设置'
     },
@@ -4337,6 +4341,29 @@ const translations = {
       noResultsDesc: '请尝试其他搜索词',
       welcome: 'MIME 类型查询',
       welcomeDesc: '通过文件扩展名或 MIME 类型字符串搜索 MIME 类型'
+    },
+    userAgent: {
+      title: 'User-Agent 解析器',
+      description: '解析和分析 User-Agent 字符串，提取浏览器、操作系统和设备信息',
+      userAgent: 'User-Agent 字符串',
+      placeholder: '输入要解析的 User-Agent 字符串...',
+      parse: '解析',
+      useCurrent: '使用当前浏览器',
+      showExamples: '显示示例',
+      hideExamples: '隐藏示例',
+      commonExamples: '常见 User-Agent 示例',
+      rawUserAgent: '原始 User-Agent',
+      browser: '浏览器',
+      operatingSystem: '操作系统',
+      engine: '渲染引擎',
+      device: '设备',
+      name: '名称',
+      version: '版本',
+      type: '类型',
+      noResults: '无法解析',
+      noResultsDesc: '无法解析该 User-Agent 字符串',
+      welcome: 'User-Agent 解析器',
+      welcomeDesc: '输入 User-Agent 字符串以解析和分析浏览器、操作系统和设备信息'
     },
     pdfSignature: {
       title: 'PDF 签名校验',
