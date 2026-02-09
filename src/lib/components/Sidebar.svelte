@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route } from 'lucide-svelte';
 
   const navItems = [
     { path: '/api-client', icon: Globe, key: 'nav.apiClient' },
@@ -97,6 +97,7 @@
     { path: '/certificate-viewer', icon: FileCheck, key: 'nav.certificateViewer' },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker' },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner' },
+    { path: '/traceroute', icon: Route, key: 'nav.traceroute' },
     { path: '/regex-tester', icon: Regex, key: 'nav.regexTester' },
     { path: '/mock-generator', icon: DatabaseZap, key: 'nav.mockGenerator' },
     { path: '/config-converter', icon: FileCode, key: 'nav.configConverter' },

@@ -834,6 +834,30 @@ pub struct PortScanResponse {
     open_ports: Vec<PortScanResult>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TracerouteRequest {
+    host: String,
+    max_hops: u8,
+    timeout_ms: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TracerouteHop {
+    hop: u8,
+    hostname: Option<String>,
+    ip: Option<String>,
+    rtt_ms: Option<f64>,
+    status: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TracerouteResponse {
+    host: String,
+    hops: Vec<TracerouteHop>,
+    duration_ms: u128,
+    error: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CertificateInfo {
     subject: String,
@@ -1277,6 +1301,206 @@ async fn scan_ports(request: PortScanRequest) -> Result<PortScanResponse, String
     })
 }
 
+// Traceroute command
+#[tauri::command]
+async fn traceroute(request: TracerouteRequest) -> Result<TracerouteResponse, String> {
+    use tokio::process::Command;
+    use std::time::Instant;
+    
+    let host = request.host.trim().to_string();
+    if host.is_empty() {
+        return Err("Host is required".to_string());
+    }
+    
+    let start = Instant::now();
+    let max_hops = request.max_hops.clamp(1, 64);
+    let timeout_secs = (request.timeout_ms / 1000).max(1).min(30);
+    
+    // Determine the traceroute command based on the platform
+    let (cmd_name, args) = if cfg!(target_os = "windows") {
+        (
+            "tracert",
+            vec![
+                "-h".to_string(),
+                max_hops.to_string(),
+                "-w".to_string(),
+                (timeout_secs * 1000).to_string(), // Windows uses milliseconds
+                host.clone(),
+            ],
+        )
+    } else {
+        // Linux/macOS
+        (
+            "traceroute",
+            vec![
+                "-m".to_string(),
+                max_hops.to_string(),
+                "-w".to_string(),
+                timeout_secs.to_string(),
+                "-q".to_string(),
+                "1".to_string(), // Only 1 probe per hop for faster results
+                host.clone(),
+            ],
+        )
+    };
+    
+    let output = Command::new(cmd_name)
+        .args(&args)
+        .output()
+        .await;
+    
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            
+            // Check if command failed
+            if !output.status.success() && !stderr.is_empty() {
+                return Ok(TracerouteResponse {
+                    host,
+                    hops: vec![],
+                    duration_ms: start.elapsed().as_millis(),
+                    error: Some(format!("Traceroute failed: {}", stderr)),
+                });
+            }
+            
+            // Parse traceroute output
+            let hops = parse_traceroute_output(&stdout, cfg!(target_os = "windows"));
+            
+            Ok(TracerouteResponse {
+                host,
+                hops,
+                duration_ms: start.elapsed().as_millis(),
+                error: None,
+            })
+        }
+        Err(e) => {
+            Ok(TracerouteResponse {
+                host,
+                hops: vec![],
+                duration_ms: start.elapsed().as_millis(),
+                error: Some(format!(
+                    "Failed to execute traceroute command: {}. Make sure {} is installed and available in PATH.",
+                    e, cmd_name
+                )),
+            })
+        }
+    }
+}
+
+fn parse_traceroute_output(output: &str, is_windows: bool) -> Vec<TracerouteHop> {
+    let mut hops = Vec::new();
+    
+    if is_windows {
+        // Windows tracert format:
+        //   1    <1 ms    <1 ms    <1 ms  192.168.1.1
+        //   2    10 ms    10 ms    10 ms  10.0.0.1
+        for line in output.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with("Tracing") || line.starts_with("Trace") {
+                continue;
+            }
+            
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 5 {
+                if let Ok(hop_num) = parts[0].parse::<u8>() {
+                    // Extract RTT (take the first RTT value)
+                    let rtt_str = parts[1];
+                    let rtt_ms = rtt_str
+                        .replace("<", "")
+                        .replace("ms", "")
+                        .trim()
+                        .parse::<f64>()
+                        .ok();
+                    
+                    // Extract IP (last part)
+                    let ip = parts.last().map(|s| s.to_string());
+                    
+                    hops.push(TracerouteHop {
+                        hop: hop_num,
+                        hostname: None,
+                        ip,
+                        rtt_ms,
+                        status: if rtt_ms.is_some() {
+                            "success".to_string()
+                        } else {
+                            "timeout".to_string()
+                        },
+                    });
+                }
+            }
+        }
+    } else {
+        // Linux/macOS traceroute format:
+        //  1  192.168.1.1 (192.168.1.1)  0.234 ms  0.123 ms  0.098 ms
+        //  2  * * *
+        for line in output.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with("traceroute") {
+                continue;
+            }
+            
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.is_empty() {
+                continue;
+            }
+            
+            if let Ok(hop_num) = parts[0].parse::<u8>() {
+                if parts.len() >= 2 {
+                    if parts[1] == "*" {
+                        // Timeout
+                        hops.push(TracerouteHop {
+                            hop: hop_num,
+                            hostname: None,
+                            ip: None,
+                            rtt_ms: None,
+                            status: "timeout".to_string(),
+                        });
+                    } else {
+                        // Extract hostname and IP
+                        let hostname = if parts[1].starts_with('(') {
+                            None
+                        } else {
+                            Some(parts[1].to_string())
+                        };
+                        
+                        let ip = if parts.len() >= 3 && parts[2].starts_with('(') {
+                            Some(parts[2].trim_matches(|c| c == '(' || c == ')').to_string())
+                        } else if parts[1].contains('.') && !parts[1].starts_with('(') {
+                            Some(parts[1].to_string())
+                        } else {
+                            None
+                        };
+                        
+                        // Extract RTT (first numeric value after IP)
+                        let mut rtt_ms = None;
+                        for part in parts.iter().skip(2) {
+                            if let Ok(rtt) = part.replace("ms", "").trim().parse::<f64>() {
+                                rtt_ms = Some(rtt);
+                                break;
+                            }
+                        }
+                        
+                        hops.push(TracerouteHop {
+                            hop: hop_num,
+                            hostname,
+                            ip,
+                            rtt_ms,
+                            status: if rtt_ms.is_some() {
+                                "success".to_string()
+                            } else {
+                                "timeout".to_string()
+                            },
+                        });
+                    }
+                }
+            }
+        }
+    }
+    
+    hops
+}
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -1425,7 +1649,8 @@ pub fn run() {
             compress_image,
             pdf_to_image,
             check_tls_versions,
-            scan_ports
+            scan_ports,
+            traceroute
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

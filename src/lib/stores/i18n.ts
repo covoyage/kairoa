@@ -55,6 +55,7 @@ const translations = {
       mimeTypeDesc: 'Query MIME types by file extension or MIME type string',
       userAgentDesc: 'Parse and analyze User-Agent strings to extract browser, OS, and device information',
       httpStatusDesc: 'Query HTTP status codes with detailed descriptions and RFC references',
+      tracerouteDesc: 'Trace the route packets take to reach a destination host',
       asciiArtDesc: 'Convert text to ASCII art'
     },
     nav: {
@@ -87,6 +88,7 @@ const translations = {
       certificateViewer: 'Certificate Viewer',
       tlsChecker: 'TLS Version Checker',
       portScanner: 'Port Scanner',
+      traceroute: 'Traceroute',
       chmod: 'Chmod Calculator',
       keycode: 'Keycode Info',
       passwordStrength: 'Password Strength Checker',
@@ -2120,6 +2122,29 @@ const translations = {
         scanFailed: 'Port scan failed'
       }
     },
+    traceroute: {
+      title: 'Traceroute',
+      description: 'Trace the route packets take to reach a destination host',
+      host: 'Host',
+      hostPlaceholder: 'example.com or 8.8.8.8',
+      maxHops: 'Max Hops',
+      timeout: 'Timeout',
+      trace: 'Trace',
+      tracing: 'Tracing...',
+      results: 'Traceroute Results',
+      duration: 'Duration',
+      hop: 'Hop',
+      hostname: 'Hostname',
+      ip: 'IP Address',
+      rtt: 'RTT',
+      status: 'Status',
+      noResults: 'No results',
+      noResultsDesc: 'Unable to trace route to destination',
+      errors: {
+        hostRequired: 'Host is required',
+        traceFailed: 'Traceroute failed'
+      }
+    },
     regexTester: {
       title: 'Regex Tester',
       description: 'Test and debug regular expressions with real-time matching and highlighting',
@@ -2543,6 +2568,7 @@ const translations = {
       certificateViewerDesc: '查看和检查证书文件（PEM、CRT、CER、KEY）的详细信息',
       tlsCheckerDesc: '检测远程服务器支持的 TLS/SSL 版本',
       portScannerDesc: '扫描远程主机的开放端口，支持自定义范围和并发设置',
+      tracerouteDesc: '追踪数据包到达目标主机所经过的路由路径',
       chmodDesc: '计算和转换文件权限（chmod）',
       keycodeDesc: '查看键盘按键代码和事件信息',
       passwordStrengthDesc: '检测密码强度并获取安全建议',
@@ -2596,6 +2622,7 @@ const translations = {
       certificateViewer: '证书查看器',
       tlsChecker: 'TLS 版本检测',
       portScanner: '端口扫描',
+      traceroute: '路由追踪',
       chmod: 'Chmod 权限计算器',
       keycode: '按键代码信息',
             passwordStrength: '密码强度检测器',
@@ -4627,6 +4654,29 @@ const translations = {
         hostRequired: '主机地址是必填项',
         invalidRange: '无效的端口范围（1-65535）',
         scanFailed: '端口扫描失败'
+      }
+    },
+    traceroute: {
+      title: '路由追踪',
+      description: '追踪数据包到达目标主机所经过的路由路径',
+      host: '主机',
+      hostPlaceholder: 'example.com 或 8.8.8.8',
+      maxHops: '最大跳数',
+      timeout: '超时时间',
+      trace: '开始追踪',
+      tracing: '追踪中...',
+      results: '路由追踪结果',
+      duration: '耗时',
+      hop: '跳数',
+      hostname: '主机名',
+      ip: 'IP 地址',
+      rtt: '往返时间',
+      status: '状态',
+      noResults: '无结果',
+      noResultsDesc: '无法追踪到目标主机的路由',
+      errors: {
+        hostRequired: '主机是必需的',
+        traceFailed: '路由追踪失败'
       }
     },
     regexTester: {

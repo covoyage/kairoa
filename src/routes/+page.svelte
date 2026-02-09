@@ -1,7 +1,7 @@
 <script lang="ts">
 import { translationsStore } from '$lib/stores/i18n';
 import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -121,6 +121,7 @@ import { goto } from '$app/navigation';
     { path: '/certificate-viewer', icon: FileCheck, key: 'nav.certificateViewer', subItems: [] },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker', subItems: [] },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner', subItems: [] },
+    { path: '/traceroute', icon: Route, key: 'nav.traceroute', subItems: [] },
     { path: '/regex-tester', icon: Regex, key: 'nav.regexTester', subItems: [] },
     { path: '/mock-generator', icon: DatabaseZap, key: 'nav.mockGenerator', subItems: [] },
     { path: '/chmod', icon: Terminal, key: 'nav.chmod', subItems: [] },

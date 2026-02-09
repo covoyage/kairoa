@@ -125,6 +125,13 @@
 - Quick presets for top/common ports
 - Displays open ports with response latency
 
+### 🔍 Traceroute
+- Trace the route packets take to reach a destination host
+- Display each hop with hostname, IP address, and RTT (Round-Trip Time)
+- Configurable maximum hops and timeout settings
+- Cross-platform support (Windows tracert, Linux/macOS traceroute)
+- Useful for network diagnostics, routing analysis, and troubleshooting connectivity issues
+
 ### 🌍 IP/Domain Lookup
 - Query IP address geographic location and ISP information
 - Domain resolution and reverse lookup
