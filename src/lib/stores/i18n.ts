@@ -52,6 +52,7 @@ const translations = {
       configConverterDesc: 'Convert between configuration file formats (JSON, YAML, TOML, INI, XML, Properties, ENV, TOON)',
       hmacDesc: 'Generate HMAC (Hash-based Message Authentication Code) signatures',
       envManagerDesc: 'Manage environment variables with import/export support',
+      mimeTypeDesc: 'Query MIME types by file extension or MIME type string',
       asciiArtDesc: 'Convert text to ASCII art'
     },
     nav: {
@@ -98,6 +99,7 @@ const translations = {
       dataConverter: 'CSV / JSON Converter',
       configConverter: 'Config Converter',
       envManager: 'Environment Variables Manager',
+      mimeType: 'MIME Type Lookup',
       asciiArt: 'ASCII Art',
       settings: 'Settings'
     },
@@ -1860,6 +1862,24 @@ const translations = {
       importPlaceholder: 'DATABASE_URL=postgres://localhost:5432/mydb\nAPI_KEY=your-api-key\nDEBUG=true',
       confirmClear: 'Are you sure you want to clear all environment variables?'
     },
+    mimeType: {
+      title: 'MIME Type Lookup',
+      description: 'Query MIME types by file extension or MIME type string',
+      searchByExtension: 'Search by Extension',
+      searchByMime: 'Search by MIME Type',
+      extension: 'File Extension',
+      mimeType: 'MIME Type',
+      extensionPlaceholder: 'Enter file extension (e.g., pdf, jpg)',
+      mimePlaceholder: 'Enter MIME type (e.g., application/pdf)',
+      extensionHint: 'Enter a file extension without the dot (e.g., pdf, jpg, html)',
+      mimeHint: 'Enter a MIME type to find associated file extensions',
+      search: 'Search',
+      extensions: 'Extensions',
+      noResults: 'No results found',
+      noResultsDesc: 'Try a different search term',
+      welcome: 'MIME Type Lookup',
+      welcomeDesc: 'Search for MIME types by file extension or MIME type string'
+    },
     pdfSignature: {
       title: 'PDF Signature Checker',
       description: 'Inspect PDF digital signatures and validate them locally.',
@@ -2490,6 +2510,7 @@ const translations = {
       configConverterDesc: '在配置文件格式之间转换（JSON、YAML、TOML、INI、XML、Properties、ENV、TOON）',
       hmacDesc: '生成 HMAC（基于哈希的消息认证码）签名',
       envManagerDesc: '管理环境变量，支持导入导出',
+      mimeTypeDesc: '通过文件扩展名或 MIME 类型字符串查询 MIME 类型',
       asciiArtDesc: '将文本转换为 ASCII 艺术字'
     },
     nav: {
@@ -2536,6 +2557,7 @@ const translations = {
       dataConverter: 'CSV / JSON 转换',
       configConverter: '配置转换器',
       envManager: '环境变量管理器',
+      mimeType: 'MIME 类型查询',
       asciiArt: 'ASCII 艺术',
       settings: '设置'
     },
@@ -4297,6 +4319,24 @@ const translations = {
       importDesc: '粘贴 .env 格式内容（KEY=VALUE，每行一个）',
       importPlaceholder: 'DATABASE_URL=postgres://localhost:5432/mydb\nAPI_KEY=your-api-key\nDEBUG=true',
       confirmClear: '确定要清空所有环境变量吗？'
+    },
+    mimeType: {
+      title: 'MIME 类型查询',
+      description: '通过文件扩展名或 MIME 类型字符串查询 MIME 类型',
+      searchByExtension: '按扩展名搜索',
+      searchByMime: '按 MIME 类型搜索',
+      extension: '文件扩展名',
+      mimeType: 'MIME 类型',
+      extensionPlaceholder: '输入文件扩展名（例如：pdf, jpg）',
+      mimePlaceholder: '输入 MIME 类型（例如：application/pdf）',
+      extensionHint: '输入文件扩展名，不需要点号（例如：pdf, jpg, html）',
+      mimeHint: '输入 MIME 类型以查找关联的文件扩展名',
+      search: '搜索',
+      extensions: '扩展名',
+      noResults: '未找到结果',
+      noResultsDesc: '请尝试其他搜索词',
+      welcome: 'MIME 类型查询',
+      welcomeDesc: '通过文件扩展名或 MIME 类型字符串搜索 MIME 类型'
     },
     pdfSignature: {
       title: 'PDF 签名校验',
