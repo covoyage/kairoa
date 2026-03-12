@@ -695,12 +695,28 @@
       if (!ctx) {
         throw new Error('Failed to get canvas context');
       }
-      
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Draw image to canvas
-      ctx.drawImage(img, 0, 0);
+      // 对 SVG 在高分屏（尤其是 Apple M 芯片）上做高分辨率渲染，避免放大时模糊
+      const isSvg =
+        imageFile.type === 'image/svg+xml' ||
+        imageFile.name.toLowerCase().endsWith('.svg');
+
+      if (isSvg) {
+        const scale = (window.devicePixelRatio || 1) * 2; // 提高分辨率，适配 Retina 屏
+        const width = img.width || 1024;
+        const height = img.height || 1024;
+
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        ctx.setTransform(scale, 0, 0, scale, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        // 普通位图按原尺寸绘制
+        ctx.drawImage(img, 0, 0);
+      }
       
       // Convert to target format
       const mimeType = `image/${targetFormat === 'jpg' ? 'jpeg' : targetFormat}`;
