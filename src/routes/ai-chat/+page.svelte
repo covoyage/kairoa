@@ -68,6 +68,65 @@
     currentModel: ''
   });
 
+  // File attachment state
+  let attachedFiles = $state<Array<{ name: string; content: string; type: string }>>([]);
+  let fileInputRef = $state<HTMLInputElement | null>(null);
+
+  // API Key visibility state for modals
+  let showApiKeyInAddModal = $state(false);
+  let showApiKeyInEditModal = $state(false);
+
+  // Handle file selection
+  async function handleFileSelect(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const files = target.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      try {
+        const content = await readFileContent(file);
+        attachedFiles = [...attachedFiles, {
+          name: file.name,
+          content,
+          type: file.type
+        }];
+      } catch (e) {
+        console.error('Failed to read file:', e);
+        error = t('aiChat.fileReadError');
+      }
+    }
+
+    // Reset input
+    if (fileInputRef) {
+      fileInputRef.value = '';
+    }
+  }
+
+  // Read file content
+  function readFileContent(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve(e.target?.result as string);
+      };
+      reader.onerror = (e) => {
+        reject(e);
+      };
+
+      // For text files, read as text; for images, read as data URL
+      if (file.type.startsWith('image/')) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+  }
+
+  // Remove attached file
+  function removeAttachedFile(index: number) {
+    attachedFiles = attachedFiles.filter((_, i) => i !== index);
+  }
+
   // Auto-fill apiBaseUrl when provider changes
   $effect(() => {
     const provider = newConfig.provider;
@@ -584,18 +643,28 @@
   }
 
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() && attachedFiles.length === 0) return;
 
     if (!settings.apiBaseUrl.trim() || !settings.apiKey.trim() || !settings.model.trim()) {
       error = t('aiChat.errors.missingConfig');
       return;
     }
 
-    const userContent = input.trim();
+    // Build user content
+    const textContent = input.trim();
+    const filesToSend = [...attachedFiles];
+    
     input = '';
     error = '';
+    attachedFiles = []; // Clear attached files
 
-    addMessage('user', userContent);
+    // Build display content for UI
+    let displayContent = textContent;
+    if (filesToSend.length > 0) {
+      const fileNames = filesToSend.map(f => f.type.startsWith('image/') ? `[图片: ${f.name}]` : `[文件: ${f.name}]`).join(' ');
+      displayContent = textContent ? `${textContent} ${fileNames}` : fileNames;
+    }
+    addMessage('user', displayContent);
 
     isSending = true;
     try {
@@ -605,7 +674,7 @@
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .slice(-settings.maxHistory);
 
-      const apiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [];
+      const apiMessages: { role: 'system' | 'user' | 'assistant'; content: string | Array<{type: string; text?: string; image_url?: {url: string}}> }[] = [];
 
       if (settings.systemPrompt.trim()) {
         apiMessages.push({ role: 'system', content: settings.systemPrompt.trim() });
@@ -615,7 +684,30 @@
         apiMessages.push({ role: m.role, content: m.content });
       }
 
-      apiMessages.push({ role: 'user', content: userContent });
+      // Build multimodal content for API
+      const userMessageContent: Array<{type: string; text?: string; image_url?: {url: string}}> = [];
+      
+      if (textContent) {
+        userMessageContent.push({ type: 'text', text: textContent });
+      }
+      
+      // Add images in multimodal format
+      for (const file of filesToSend) {
+        if (file.type.startsWith('image/')) {
+          userMessageContent.push({
+            type: 'image_url',
+            image_url: { url: file.content }
+          });
+        } else {
+          // For non-image files, add as text
+          userMessageContent.push({
+            type: 'text',
+            text: `[File: ${file.name}]\n\`\`\`\n${file.content}\n\`\`\``
+          });
+        }
+      }
+      
+      apiMessages.push({ role: 'user', content: userMessageContent });
 
       const assistantId = crypto.randomUUID();
       messages = [
@@ -985,6 +1077,38 @@
         <!-- 输入区域 -->
         <div class="sticky bottom-0 bg-gradient-to-t from-gray-50 dark:from-gray-900 via-gray-50 dark:via-gray-900 to-transparent pt-4 pb-3 px-2">
           <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 shadow-sm">
+            <!-- Attached Files Display -->
+            {#if attachedFiles.length > 0}
+              <div class="flex flex-wrap gap-2 mb-3">
+                {#each attachedFiles as file, index}
+                  <div class="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300">
+                    {#if file.type.startsWith('image/')}
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <circle cx="8.5" cy="8.5" r="1.5"/>
+                        <path d="M21 15l-5-5L5 21"/>
+                      </svg>
+                    {:else}
+                      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                      </svg>
+                    {/if}
+                    <span class="truncate max-w-[120px]">{file.name}</span>
+                    <button
+                      type="button"
+                      class="ml-1 text-gray-500 hover:text-red-500"
+                      onclick={() => removeAttachedFile(index)}
+                      title={t('aiChat.removeFile')}
+                    >
+                      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
             <textarea
               bind:value={input}
               rows={1}
@@ -994,8 +1118,8 @@
               oninput={adjustTextareaHeight}
             ></textarea>
             <div class="flex items-center justify-between mt-3">
-              <div class="flex items-center gap-2">
-                <!-- Model Selector Button -->
+                <div class="flex items-center gap-2">
+                  <!-- Model Selector Button -->
                 <div class="relative model-dropdown-container">
                   <button
                     type="button"
@@ -1109,6 +1233,24 @@
                 </div>
               </div>
               <div class="flex items-center gap-2">
+                <!-- File Upload Button -->
+                <input
+                  type="file"
+                  bind:this={fileInputRef}
+                  onchange={handleFileSelect}
+                  multiple
+                  class="hidden"
+                  id="file-upload"
+                />
+                <label
+                  for="file-upload"
+                  class="flex items-center justify-center h-8 w-8 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors"
+                  title={t('aiChat.attachFile')}
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                  </svg>
+                </label>
                 {#if isSending}
                   <button
                     class="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white flex items-center justify-center h-10 w-10 flex-shrink-0 rounded-xl shadow-sm transition-colors"
@@ -1123,7 +1265,7 @@
                   <button
                     class="bg-gray-900 dark:bg-gray-100 hover:bg-gray-700 dark:hover:bg-gray-300 text-white dark:text-gray-900 flex items-center justify-center h-8 w-8 flex-shrink-0 rounded-lg shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     onclick={sendMessage}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && attachedFiles.length === 0}
                     title={t('aiChat.send')}
                   >
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1203,12 +1345,32 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.apiKey')}</label>
-          <input
-            type="password"
-            bind:value={newConfig.apiKey}
-            placeholder={t('aiChat.apiKeyPlaceholder')}
-            class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+          <div class="relative">
+            <input
+              type={showApiKeyInAddModal ? 'text' : 'password'}
+              bind:value={newConfig.apiKey}
+              placeholder={t('aiChat.apiKeyPlaceholder')}
+              class="w-full px-3 py-2 pr-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              onclick={() => showApiKeyInAddModal = !showApiKeyInAddModal}
+              title={showApiKeyInAddModal ? t('aiChat.hideApiKey') : t('aiChat.showApiKey')}
+            >
+              {#if showApiKeyInAddModal}
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              {:else}
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              {/if}
+            </button>
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.model')}</label>
@@ -1343,12 +1505,32 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.apiKey')}</label>
-          <input
-            type="password"
-            bind:value={newConfig.apiKey}
-            placeholder={t('aiChat.apiKeyPlaceholder')}
-            class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
+          <div class="relative">
+            <input
+              type={showApiKeyInEditModal ? 'text' : 'password'}
+              bind:value={newConfig.apiKey}
+              placeholder={t('aiChat.apiKeyPlaceholder')}
+              class="w-full px-3 py-2 pr-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              onclick={() => showApiKeyInEditModal = !showApiKeyInEditModal}
+              title={showApiKeyInEditModal ? t('aiChat.hideApiKey') : t('aiChat.showApiKey')}
+            >
+              {#if showApiKeyInEditModal}
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              {:else}
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              {/if}
+            </button>
+          </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.model')}</label>
