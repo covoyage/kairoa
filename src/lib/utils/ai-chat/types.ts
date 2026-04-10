@@ -6,6 +6,8 @@ export interface ChatMessage {
   thinking?: string;
 }
 
+export type ApiProtocol = 'openai-chat' | 'openai-responses' | 'anthropic' | 'gemini' | 'gemini-openai';
+
 export type ProviderPresetId =
   | 'custom'
   | 'openai'
@@ -13,6 +15,7 @@ export type ProviderPresetId =
   | 'azure-openai'
   | 'openrouter'
   | 'anthropic'
+  | 'gemini'
   | 'groq'
   | 'mistral'
   | 'zhipu'
@@ -69,6 +72,12 @@ export const PROVIDER_PRESETS: Record<
     model: 'claude-sonnet-4.6',
     systemPrompt:
       'You are Claude integrated into a desktop utility app. Focus on clear, concise answers.'
+  },
+  gemini: {
+    apiBaseUrl: 'https://generativelanguage.googleapis.com',
+    model: 'gemini-2.5-flash',
+    systemPrompt:
+      'You are Gemini integrated into a desktop utility app. Provide helpful, accurate answers.'
   },
   groq: {
     apiBaseUrl: 'https://api.groq.com/openai/v1',

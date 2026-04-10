@@ -7,7 +7,7 @@
   import { renderMarkdown } from '$lib/utils/ai-chat/markdown';
   import { createThinkStreamParser } from '$lib/utils/ai-chat/streamParser';
   import { loadFromStorage, saveToStorage, loadChatSessions, saveCurrentSession, deleteChatSession } from '$lib/utils/ai-chat/storage';
-  import { PROVIDER_PRESETS, type ChatMessage, type ChatSettings, type ProviderPresetId, type ChatSession } from '$lib/utils/ai-chat/types';
+  import { PROVIDER_PRESETS, type ChatMessage, type ChatSettings, type ProviderPresetId, type ChatSession, type ApiProtocol } from '$lib/utils/ai-chat/types';
 
   let translations = $derived($translationsStore);
   let messages = $state<ChatMessage[]>([]);
@@ -42,6 +42,7 @@
     id: string;
     name: string;
     provider: ProviderPresetId;
+    protocol: ApiProtocol;
     apiBaseUrl: string;
     apiKey: string;
     models: ModelConfig[];
@@ -55,6 +56,7 @@
   let newConfig = $state<{
     name: string;
     provider: ProviderPresetId;
+    protocol: ApiProtocol;
     apiBaseUrl: string;
     apiKey: string;
     models: ModelConfig[];
@@ -62,6 +64,7 @@
   }>({
     name: '',
     provider: 'openai',
+    protocol: 'openai-chat',
     apiBaseUrl: '',
     apiKey: '',
     models: [],
@@ -211,6 +214,7 @@
       id: crypto.randomUUID(),
       name: configName,
       provider: newConfig.provider,
+      protocol: newConfig.protocol,
       apiBaseUrl: newConfig.apiBaseUrl,
       apiKey: newConfig.apiKey,
       models: newConfig.models
@@ -227,7 +231,7 @@
     };
     saveApiConfigs();
     showAddConfigModal = false;
-    newConfig = { name: '', provider: 'openai', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' };
+    newConfig = { name: '', provider: 'openai', protocol: 'openai-chat', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' };
   }
 
   // Delete API config
@@ -254,6 +258,7 @@
     newConfig = {
       name: config.name,
       provider: config.provider,
+      protocol: config.protocol,
       apiBaseUrl: config.apiBaseUrl,
       apiKey: config.apiKey,
       models: [...config.models],
@@ -275,6 +280,7 @@
       id: editingConfigId,
       name: configName,
       provider: newConfig.provider,
+      protocol: newConfig.protocol,
       apiBaseUrl: newConfig.apiBaseUrl,
       apiKey: newConfig.apiKey,
       models: newConfig.models
@@ -299,7 +305,7 @@
     saveApiConfigs();
     showEditConfigModal = false;
     editingConfigId = '';
-    newConfig = { name: '', provider: 'openai', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' };
+    newConfig = { name: '', provider: 'openai', protocol: 'openai-chat', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' };
   }
 
   // Switch to config
@@ -373,6 +379,12 @@
       { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' }
     ],
+    'Gemini': [
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+      { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite' }
+    ],
     'OpenRouter': [
       { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', tag: 'Free' },
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
@@ -413,6 +425,7 @@
     'openai': ['OpenAI'],
     'deepseek': ['DeepSeek'],
     'anthropic': ['Anthropic'],
+    'gemini': ['Gemini'],
     'openrouter': ['OpenRouter'],
     'groq': ['Groq'],
     'mistral': ['Mistral'],
@@ -722,18 +735,120 @@
 
       abortController = new AbortController();
 
-      const response = await fetch(`${apiBase}/chat/completions`, {
-        method: 'POST',
-        headers: {
+      // Get protocol from active config
+      const activeConfig = apiConfigs.find(c => c.id === activeConfigId);
+      const protocol: ApiProtocol = activeConfig?.protocol || 'openai-chat';
+      
+      let requestUrl: string;
+      let requestHeaders: Record<string, string>;
+      let requestBody: unknown;
+
+      if (protocol === 'anthropic') {
+        // Anthropic native API
+        requestUrl = `${apiBase}/v1/messages`;
+        requestHeaders = {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${settings.apiKey.trim()}`,
-          ...(settings.provider === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {})
-        },
-        body: JSON.stringify({
+          'x-api-key': settings.apiKey.trim(),
+          'anthropic-version': '2023-06-01'
+        };
+
+        // Convert OpenAI format messages to Anthropic format
+        const systemMessage = apiMessages.find(m => m.role === 'system')?.content as string;
+        const anthropicMessages = apiMessages
+          .filter(m => m.role !== 'system')
+          .map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : m.content.map(c => {
+              if (c.type === 'text') return { type: 'text', text: c.text };
+              if (c.type === 'image_url') return { type: 'image', source: { type: 'base64', media_type: 'image/png', data: c.image_url?.url.split(',')[1] || '' } };
+              return c;
+            })
+          }));
+
+        requestBody = {
+          model: settings.model.trim(),
+          messages: anthropicMessages,
+          max_tokens: 4096,
+          stream: true,
+          ...(systemMessage ? { system: systemMessage } : {})
+        };
+      } else if (protocol === 'gemini') {
+        // Gemini native API
+        // Check if apiBase already contains the full path (for third-party providers)
+        if (apiBase.includes('/models/') || apiBase.includes(':streamGenerateContent')) {
+          // Third-party provider format - use as-is, just add key
+          const separator = apiBase.includes('?') ? '&' : '?';
+          requestUrl = `${apiBase}${separator}key=${settings.apiKey.trim()}`;
+        } else {
+          // Google official API format
+          const baseUrl = apiBase.replace(/\/v1beta$/, '').replace(/\/v1$/, '');
+          requestUrl = `${baseUrl}/v1beta/models/${settings.model.trim()}:streamGenerateContent?key=${settings.apiKey.trim()}`;
+        }
+        requestHeaders = {
+          'Content-Type': 'application/json'
+        };
+
+        // Convert OpenAI format messages to Gemini format
+        const systemMessage = apiMessages.find(m => m.role === 'system')?.content as string;
+        const geminiContents = apiMessages
+          .filter(m => m.role !== 'system')
+          .map(m => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: typeof m.content === 'string'
+              ? [{ text: m.content }]
+              : m.content.map(c => {
+                  if (c.type === 'text') return { text: c.text };
+                  if (c.type === 'image_url') {
+                    const base64Data = c.image_url?.url.split(',')[1] || '';
+                    const mimeType = c.image_url?.url.match(/data:([^;]+);/)?.[1] || 'image/png';
+                    return {
+                      inlineData: {
+                        mimeType,
+                        data: base64Data
+                      }
+                    };
+                  }
+                  return { text: '' };
+                })
+          }));
+
+        requestBody = {
+          contents: geminiContents,
+          ...(systemMessage ? { systemInstruction: { parts: [{ text: systemMessage }] } } : {})
+        };
+      } else if (protocol === 'openai-responses') {
+        // OpenAI Responses API
+        requestUrl = `${apiBase}/responses`;
+        requestHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey.trim()}`
+        };
+        requestBody = {
+          model: settings.model.trim(),
+          input: apiMessages.map(m => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+          })),
+          stream: true
+        };
+      } else {
+        // OpenAI Chat Completions API (default)
+        requestUrl = `${apiBase}/chat/completions`;
+        requestHeaders = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${settings.apiKey.trim()}`
+        };
+        requestBody = {
           model: settings.model.trim(),
           messages: apiMessages,
           ...(settings.provider !== 'groq' ? { stream: true } : {})
-        }),
+        };
+      }
+
+      const response = await fetch(requestUrl, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: JSON.stringify(requestBody),
         signal: abortController.signal
       });
 
@@ -787,20 +902,39 @@
 
             try {
               const payload = JSON.parse(dataStr);
-              const delta =
-                payload?.choices?.[0]?.delta?.content ??
-                payload?.choices?.[0]?.message?.content ??
-                '';
-              if (!delta) continue;
+              let delta = '';
+              let thinkingDelta: string | undefined;
 
-              const { answerDelta, thinkingDelta } = parser.feed(String(delta));
+              if (protocol === 'anthropic') {
+                // Anthropic SSE format
+                delta = payload?.delta?.text ?? '';
+                if (payload?.type === 'content_block_delta' && payload?.delta?.thinking) {
+                  thinkingDelta = payload.delta.thinking;
+                }
+              } else if (protocol === 'gemini') {
+                // Gemini SSE format
+                const candidates = payload?.candidates?.[0];
+                if (candidates?.content?.parts) {
+                  delta = candidates.content.parts.map((p: { text?: string }) => p.text || '').join('');
+                }
+              } else {
+                // OpenAI compatible format
+                delta =
+                  payload?.choices?.[0]?.delta?.content ??
+                  payload?.choices?.[0]?.message?.content ??
+                  '';
+              }
 
-              if (thinkingDelta) {
+              if (!delta && !thinkingDelta) continue;
+
+              const { answerDelta, thinkingDelta: parsedThinking } = parser.feed(String(delta));
+
+              if (thinkingDelta || parsedThinking) {
                 hasThinking = true;
                 const curThinking =
                   messages.find((m) => m.id === assistantId)?.thinking || '';
                 updateMessage(assistantId, {
-                  thinking: curThinking + thinkingDelta
+                  thinking: curThinking + (thinkingDelta || parsedThinking || '')
                 });
                 thinkingExpanded = { ...thinkingExpanded, [assistantId]: true };
               }
@@ -1312,6 +1446,7 @@
             <option value="openai">OpenAI</option>
             <option value="deepseek">DeepSeek</option>
             <option value="anthropic">Anthropic</option>
+            <option value="gemini">Gemini</option>
             <option value="openrouter">OpenRouter</option>
             <option value="groq">Groq</option>
             <option value="mistral">Mistral</option>
@@ -1332,6 +1467,19 @@
               placeholder={t('aiChat.configNamePlaceholder')}
               class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.apiProtocol')}</label>
+            <select
+              bind:value={newConfig.protocol}
+              class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer"
+              style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3E%3Cpath d=%27M6 9l6 6 6-6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem; padding-right: 2rem;"
+            >
+              <option value="openai-chat">{t('aiChat.protocolOpenAIChat')}</option>
+              <option value="openai-responses">{t('aiChat.protocolOpenAIResponses')}</option>
+              <option value="anthropic">{t('aiChat.protocolAnthropic')}</option>
+              <option value="gemini">{t('aiChat.protocolGemini')}</option>
+            </select>
           </div>
         {/if}
         <div>
@@ -1454,7 +1602,7 @@
         <button
           type="button"
           class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-          onclick={() => { showEditConfigModal = false; editingConfigId = ''; newConfig = { name: '', provider: 'openai', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' }; }}
+          onclick={() => { showEditConfigModal = false; editingConfigId = ''; newConfig = { name: '', provider: 'openai', protocol: 'openai-chat', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' }; }}
         >
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1472,6 +1620,7 @@
             <option value="openai">OpenAI</option>
             <option value="deepseek">DeepSeek</option>
             <option value="anthropic">Anthropic</option>
+            <option value="gemini">Gemini</option>
             <option value="openrouter">OpenRouter</option>
             <option value="groq">Groq</option>
             <option value="mistral">Mistral</option>
@@ -1492,6 +1641,19 @@
               placeholder={t('aiChat.configNamePlaceholder')}
               class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('aiChat.apiProtocol')}</label>
+            <select
+              bind:value={newConfig.protocol}
+              class="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none cursor-pointer"
+              style="background-image: url('data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27currentColor%27 stroke-width=%272%27%3E%3Cpath d=%27M6 9l6 6 6-6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1rem; padding-right: 2rem;"
+            >
+              <option value="openai-chat">{t('aiChat.protocolOpenAIChat')}</option>
+              <option value="openai-responses">{t('aiChat.protocolOpenAIResponses')}</option>
+              <option value="anthropic">{t('aiChat.protocolAnthropic')}</option>
+              <option value="gemini">{t('aiChat.protocolGemini')}</option>
+            </select>
           </div>
         {/if}
         <div>
@@ -1588,7 +1750,7 @@
         <button
           type="button"
           class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          onclick={() => { showEditConfigModal = false; editingConfigId = ''; newConfig = { name: '', provider: 'openai', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' }; }}
+          onclick={() => { showEditConfigModal = false; editingConfigId = ''; newConfig = { name: '', provider: 'openai', protocol: 'openai-chat', apiBaseUrl: '', apiKey: '', models: [], currentModel: '' }; }}
         >
           {t('aiChat.cancel')}
         </button>
