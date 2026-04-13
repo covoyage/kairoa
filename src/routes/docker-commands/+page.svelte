@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Trash2, Container } from 'lucide-svelte';
+  import { Copy, Check, Trash2, Container, Search } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
 
@@ -22,6 +22,93 @@
   let copied = $state(false);
   const STORAGE_KEY = 'dockerCommands.state.v1';
   let hasLoadedFromStorage = false;
+
+  // 搜索功能
+  let searchQuery = $state('');
+  let showAllCommands = $state(false);
+
+  // 所有命令列表
+  const allCommands: { type: CommandType; label: string }[] = [
+    { type: 'run', label: 'dockerCommands.types.run' },
+    { type: 'build', label: 'dockerCommands.types.build' },
+    { type: 'ps', label: 'dockerCommands.types.ps' },
+    { type: 'images', label: 'dockerCommands.types.images' },
+    { type: 'stop', label: 'dockerCommands.types.stop' },
+    { type: 'start', label: 'dockerCommands.types.start' },
+    { type: 'restart', label: 'dockerCommands.types.restart' },
+    { type: 'rm', label: 'dockerCommands.types.rm' },
+    { type: 'rmi', label: 'dockerCommands.types.rmi' },
+    { type: 'exec', label: 'dockerCommands.types.exec' },
+    { type: 'logs', label: 'dockerCommands.types.logs' },
+    { type: 'pull', label: 'dockerCommands.types.pull' },
+    { type: 'push', label: 'dockerCommands.types.push' },
+    { type: 'tag', label: 'dockerCommands.types.tag' },
+    { type: 'inspect', label: 'dockerCommands.types.inspect' },
+    { type: 'cp', label: 'dockerCommands.types.cp' },
+    { type: 'commit', label: 'dockerCommands.types.commit' },
+    { type: 'search', label: 'dockerCommands.types.search' },
+    { type: 'stats', label: 'dockerCommands.types.stats' },
+    { type: 'top', label: 'dockerCommands.types.top' },
+    { type: 'port', label: 'dockerCommands.types.port' },
+    { type: 'diff', label: 'dockerCommands.types.diff' },
+    { type: 'export', label: 'dockerCommands.types.export' },
+    { type: 'import', label: 'dockerCommands.types.import' },
+    { type: 'save', label: 'dockerCommands.types.save' },
+    { type: 'load', label: 'dockerCommands.types.load' },
+    { type: 'login', label: 'dockerCommands.types.login' },
+    { type: 'logout', label: 'dockerCommands.types.logout' },
+    { type: 'network', label: 'dockerCommands.types.network' },
+    { type: 'volume', label: 'dockerCommands.types.volume' },
+    { type: 'compose', label: 'dockerCommands.types.compose' }
+  ];
+
+  // 过滤命令
+  let filteredCommands = $derived(
+    searchQuery.trim()
+      ? allCommands.filter(cmd =>
+          t(cmd.label).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          cmd.type.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : allCommands
+  );
+
+  // 获取命令的示例
+  function getCommandExample(type: CommandType): string {
+    switch (type) {
+      case 'run': return 'docker run <image>';
+      case 'build': return 'docker build -t <tag> .';
+      case 'ps': return 'docker ps';
+      case 'images': return 'docker images';
+      case 'stop': return 'docker stop <container>';
+      case 'start': return 'docker start <container>';
+      case 'restart': return 'docker restart <container>';
+      case 'rm': return 'docker rm <container>';
+      case 'rmi': return 'docker rmi <image>';
+      case 'exec': return 'docker exec <container> <command>';
+      case 'logs': return 'docker logs <container>';
+      case 'pull': return 'docker pull <image>';
+      case 'push': return 'docker push <image>';
+      case 'tag': return 'docker tag <source> <target>';
+      case 'inspect': return 'docker inspect <container>';
+      case 'cp': return 'docker cp <src> <dest>';
+      case 'commit': return 'docker commit <container> <image>';
+      case 'search': return 'docker search <term>';
+      case 'stats': return 'docker stats';
+      case 'top': return 'docker top <container>';
+      case 'port': return 'docker port <container>';
+      case 'diff': return 'docker diff <container>';
+      case 'export': return 'docker export <container>';
+      case 'import': return 'docker import <file>';
+      case 'save': return 'docker save -o <file> <image>';
+      case 'load': return 'docker load -i <file>';
+      case 'login': return 'docker login';
+      case 'logout': return 'docker logout';
+      case 'network': return 'docker network ls';
+      case 'volume': return 'docker volume ls';
+      case 'compose': return 'docker-compose up';
+      default: return `docker ${type}`;
+    }
+  }
 
   // Run 相关
   let runImage = $state('');
@@ -857,6 +944,10 @@
     {#if generatedCommand}
       <div class="flex items-center justify-end">
         <div class="flex items-center gap-2">
+          <button type="button" class="btn-secondary text-sm" onclick={() => showAllCommands = true}>
+            <Search class="w-4 h-4 inline mr-1" />
+            {t('dockerCommands.showAllCommands')}
+          </button>
           <button
             onclick={copyCommand}
             class="btn-secondary text-sm transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
@@ -873,6 +964,57 @@
             <Trash2 class="w-4 h-4 inline mr-1" />
             {t('dockerCommands.clear')}
           </button>
+        </div>
+      </div>
+    {/if}
+
+    <!-- 全部命令弹窗 -->
+    {#if showAllCommands}
+      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick={(e) => { if (e.target === e.currentTarget) showAllCommands = false; }}>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('dockerCommands.allCommands')}</h3>
+            <button
+              type="button"
+              class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              onclick={() => showAllCommands = false}
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="relative">
+              <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                bind:value={searchQuery}
+                placeholder={t('dockerCommands.searchPlaceholder')}
+                class="input pl-9 w-full"
+              />
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="space-y-2">
+              {#each filteredCommands as cmd}
+                <button
+                  type="button"
+                  class="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {commandType === cmd.type ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-700' : ''}"
+                  onclick={() => { commandType = cmd.type; showAllCommands = false; }}
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="font-medium text-gray-900 dark:text-gray-100">{t(cmd.label)}</div>
+                    <code class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300 font-mono">{getCommandExample(cmd.type)}</code>
+                  </div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">{t(`dockerCommands.descriptions.${cmd.type}`)}</div>
+                </button>
+              {/each}
+            </div>
+            {#if filteredCommands.length === 0}
+              <p class="text-sm text-gray-500 text-center py-8">{t('dockerCommands.noResults')}</p>
+            {/if}
+          </div>
         </div>
       </div>
     {/if}

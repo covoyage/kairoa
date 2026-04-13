@@ -23,6 +23,115 @@
   const STORAGE_KEY = 'gitCommands.state.v1';
   let hasLoadedFromStorage = false;
 
+  // 搜索功能
+  let searchQuery = $state('');
+  let showAllCommands = $state(false);
+
+  // 所有命令列表
+  const allCommands: { type: CommandType; label: string }[] = [
+    { type: 'add', label: 'gitCommands.types.add' },
+    { type: 'commit', label: 'gitCommands.types.commit' },
+    { type: 'push', label: 'gitCommands.types.push' },
+    { type: 'pull', label: 'gitCommands.types.pull' },
+    { type: 'fetch', label: 'gitCommands.types.fetch' },
+    { type: 'branch', label: 'gitCommands.types.branch' },
+    { type: 'checkout', label: 'gitCommands.types.checkout' },
+    { type: 'switch', label: 'gitCommands.types.switch' },
+    { type: 'merge', label: 'gitCommands.types.merge' },
+    { type: 'rebase', label: 'gitCommands.types.rebase' },
+    { type: 'tag', label: 'gitCommands.types.tag' },
+    { type: 'log', label: 'gitCommands.types.log' },
+    { type: 'status', label: 'gitCommands.types.status' },
+    { type: 'diff', label: 'gitCommands.types.diff' },
+    { type: 'show', label: 'gitCommands.types.show' },
+    { type: 'revert', label: 'gitCommands.types.revert' },
+    { type: 'cherry-pick', label: 'gitCommands.types.cherryPick' },
+    { type: 'clone', label: 'gitCommands.types.clone' },
+    { type: 'init', label: 'gitCommands.types.init' },
+    { type: 'remote', label: 'gitCommands.types.remote' },
+    { type: 'stash', label: 'gitCommands.types.stash' },
+    { type: 'reset', label: 'gitCommands.types.reset' },
+    { type: 'rm', label: 'gitCommands.types.rm' },
+    { type: 'mv', label: 'gitCommands.types.mv' },
+    { type: 'clean', label: 'gitCommands.types.clean' },
+    { type: 'config', label: 'gitCommands.types.config' },
+    { type: 'submodule', label: 'gitCommands.types.submodule' },
+    { type: 'worktree', label: 'gitCommands.types.worktree' },
+    { type: 'blame', label: 'gitCommands.types.blame' },
+    { type: 'grep', label: 'gitCommands.types.grep' },
+    { type: 'bisect', label: 'gitCommands.types.bisect' },
+    { type: 'reflog', label: 'gitCommands.types.reflog' },
+    { type: 'archive', label: 'gitCommands.types.archive' },
+    { type: 'describe', label: 'gitCommands.types.describe' },
+    { type: 'shortlog', label: 'gitCommands.types.shortlog' },
+    { type: 'restore', label: 'gitCommands.types.restore' },
+    { type: 'apply', label: 'gitCommands.types.apply' },
+    { type: 'format-patch', label: 'gitCommands.types.formatPatch' },
+    { type: 'notes', label: 'gitCommands.types.notes' },
+    { type: 'bundle', label: 'gitCommands.types.bundle' },
+    { type: 'sparse-checkout', label: 'gitCommands.types.sparseCheckout' },
+    { type: 'maintenance', label: 'gitCommands.types.maintenance' }
+  ];
+
+  // 过滤命令
+  let filteredCommands = $derived(
+    searchQuery.trim()
+      ? allCommands.filter(cmd =>
+          t(cmd.label).toLowerCase().includes(searchQuery.toLowerCase()) ||
+          cmd.type.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : allCommands
+  );
+
+  // 获取命令的示例
+  function getCommandExample(type: CommandType): string {
+    switch (type) {
+      case 'add': return 'git add <file>';
+      case 'commit': return 'git commit -m "message"';
+      case 'push': return 'git push origin <branch>';
+      case 'pull': return 'git pull origin <branch>';
+      case 'fetch': return 'git fetch origin';
+      case 'branch': return 'git branch <name>';
+      case 'checkout': return 'git checkout <branch>';
+      case 'switch': return 'git switch <branch>';
+      case 'merge': return 'git merge <branch>';
+      case 'rebase': return 'git rebase <branch>';
+      case 'tag': return 'git tag <name>';
+      case 'log': return 'git log --oneline';
+      case 'status': return 'git status';
+      case 'diff': return 'git diff';
+      case 'show': return 'git show <commit>';
+      case 'revert': return 'git revert <commit>';
+      case 'cherry-pick': return 'git cherry-pick <commit>';
+      case 'clone': return 'git clone <url>';
+      case 'init': return 'git init';
+      case 'remote': return 'git remote add origin <url>';
+      case 'stash': return 'git stash';
+      case 'reset': return 'git reset <commit>';
+      case 'rm': return 'git rm <file>';
+      case 'mv': return 'git mv <old> <new>';
+      case 'clean': return 'git clean -fd';
+      case 'config': return 'git config user.name "name"';
+      case 'submodule': return 'git submodule add <url>';
+      case 'worktree': return 'git worktree add <path>';
+      case 'blame': return 'git blame <file>';
+      case 'grep': return 'git grep "pattern"';
+      case 'bisect': return 'git bisect start';
+      case 'reflog': return 'git reflog';
+      case 'archive': return 'git archive -o file.zip HEAD';
+      case 'describe': return 'git describe --tags';
+      case 'shortlog': return 'git shortlog';
+      case 'restore': return 'git restore <file>';
+      case 'apply': return 'git apply <patch>';
+      case 'format-patch': return 'git format-patch HEAD~1';
+      case 'notes': return 'git notes add -m "note"';
+      case 'bundle': return 'git bundle create file.bundle HEAD';
+      case 'sparse-checkout': return 'git sparse-checkout init';
+      case 'maintenance': return 'git maintenance run';
+      default: return `git ${type}`;
+    }
+  }
+
   // Commit 相关
   let commitMessage = $state('');
   let commitAll = $state(true);
@@ -1421,6 +1530,10 @@
     {#if generatedCommand}
       <div class="flex items-center justify-end">
         <div class="flex items-center gap-2">
+          <button type="button" class="btn-secondary text-sm" onclick={() => showAllCommands = true}>
+            <Search class="w-4 h-4 inline mr-1" />
+            {t('gitCommands.showAllCommands')}
+          </button>
           <button
             onclick={copyCommand}
             class="btn-secondary text-sm transition-all duration-200 {copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
@@ -1437,6 +1550,57 @@
             <Trash2 class="w-4 h-4 inline mr-1" />
             {t('gitCommands.clear')}
           </button>
+        </div>
+      </div>
+    {/if}
+
+    <!-- 全部命令弹窗 -->
+    {#if showAllCommands}
+      <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick={(e) => { if (e.target === e.currentTarget) showAllCommands = false; }}>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('gitCommands.allCommands')}</h3>
+            <button
+              type="button"
+              class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              onclick={() => showAllCommands = false}
+            >
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="relative">
+              <Search class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                bind:value={searchQuery}
+                placeholder={t('gitCommands.searchPlaceholder')}
+                class="input pl-9 w-full"
+              />
+            </div>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4">
+            <div class="space-y-2">
+              {#each filteredCommands as cmd}
+                <button
+                  type="button"
+                  class="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors {commandType === cmd.type ? 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-700' : ''}"
+                  onclick={() => { commandType = cmd.type; showAllCommands = false; }}
+                >
+                  <div class="flex items-center justify-between">
+                    <div class="font-medium text-gray-900 dark:text-gray-100">{t(cmd.label)}</div>
+                    <code class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-700 dark:text-gray-300 font-mono">{getCommandExample(cmd.type)}</code>
+                  </div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400 mt-1">{t(`gitCommands.descriptions.${cmd.type}`)}</div>
+                </button>
+              {/each}
+            </div>
+            {#if filteredCommands.length === 0}
+              <p class="text-sm text-gray-500 text-center py-8">{t('gitCommands.noResults')}</p>
+            {/if}
+          </div>
         </div>
       </div>
     {/if}
