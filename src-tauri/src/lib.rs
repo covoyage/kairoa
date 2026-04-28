@@ -23,6 +23,7 @@ use image::{DynamicImage, ImageEncoder, ExtendedColorType};
 use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::PngEncoder;
 use std::io::Cursor;
+use std::fs;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequest {
@@ -1507,9 +1508,43 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileContent {
+    path: String,
+    content: String,
+    file_name: String,
+    extension: String,
+}
+
+#[tauri::command]
+fn read_file_content(file_path: String) -> Result<FileContent, String> {
+    // 读取文件内容
+    let content = fs::read_to_string(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    // 提取文件名和扩展名
+    let path = std::path::Path::new(&file_path);
+    let file_name = path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+    let extension = path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_string()
+        .to_lowercase();
+    
+    Ok(FileContent {
+        path: file_path,
+        content,
+        file_name,
+        extension,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use tauri::{Manager, Emitter};
+    use tauri::{Manager, Emitter, Listener};
     
     // 在 Linux 系统上，设置环境变量以解决白屏问题
     // 这主要是由于 WebKit2GTK 与 NVIDIA GPU 的兼容性问题
@@ -1542,6 +1577,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
+            // 监听文件打开事件
+            app.listen("tauri://file-drop", move |_event| {
+                println!("File drop event received");
+            });
+            
             // 监听 macOS 系统菜单事件
             #[cfg(target_os = "macos")]
             {
@@ -1651,7 +1691,8 @@ pub fn run() {
             pdf_to_image,
             check_tls_versions,
             scan_ports,
-            traceroute
+            traceroute,
+            read_file_content
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

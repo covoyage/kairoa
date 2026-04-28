@@ -38,7 +38,10 @@
     "iOS": {},
     "android": {},
     "linux": {
-      "deb": {},
+      "deb": {
+        "desktopTemplate": "icons/app.desktop",
+        "depends": ["libwebkit2gtk-4.1-0"]
+      },
       "rpm": {},
       "appimage": {}
     },
@@ -48,10 +51,13 @@
       "exceptionDomain": "",
       "signingIdentity": null,
       "providerShortName": null,
-      "entitlements": null
+      "entitlements": null,
+      "infoPlist": "Info.plist"
     },
     "windows": {
-      "wix": {}
+      "wix": {
+        "language": ["zh-CN", "en-US"]
+      }
     },
     "icon": [
       "icons/32x32.png",

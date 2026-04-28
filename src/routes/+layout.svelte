@@ -22,6 +22,31 @@
     // Initialize deep link listener
     initDeepLinkListener((route: string) => goto(route));
     
+    // 监听文件打开事件
+    if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      import('@tauri-apps/api/event').then((eventModule) => {
+        // 监听文件拖放事件
+        eventModule.listen('tauri://file-drop', async (event: any) => {
+          const paths = event.payload.paths as string[];
+          if (paths && paths.length > 0) {
+            const filePath = paths[0];
+            // 存储文件路径并导航到文件查看器
+            localStorage.setItem('kairoa-open-file-path', filePath);
+            goto('/file-viewer');
+          }
+        });
+        
+        // 监听命令行参数（用于右键菜单打开文件）
+        eventModule.listen('tauri://open-file', async (event: any) => {
+          const filePath = event.payload as string;
+          if (filePath) {
+            localStorage.setItem('kairoa-open-file-path', filePath);
+            goto('/file-viewer');
+          }
+        });
+      });
+    }
+    
     // 添加键盘快捷键 Cmd+I 来显示 About 对话框（用于测试）
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'i') {

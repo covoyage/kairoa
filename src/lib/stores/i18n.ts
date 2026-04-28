@@ -109,6 +109,7 @@ const translations = {
       userAgent: 'User-Agent Parser',
       httpStatus: 'HTTP Status Code Lookup',
       asciiArt: 'ASCII Art',
+      fileViewer: 'File Viewer',
       settings: 'Settings'
     },
     aiChat: {
@@ -2635,6 +2636,18 @@ const translations = {
       brightnessCharsHint: 'Characters from dark to light, used to represent different brightness levels',
       converting: 'Converting...',
       convert: 'Convert'
+    },
+    fileViewer: {
+      title: 'File Viewer',
+      copy: 'Copy',
+      copied: 'Copied',
+      loading: 'Loading...',
+      invalidSVG: 'Invalid SVG content',
+      errors: {
+        noFile: 'No file specified',
+        notTauri: 'File viewing is only supported in the desktop app',
+        loadFailed: 'Failed to load file'
+      }
     }
   },
   zh: {
@@ -5268,6 +5281,18 @@ const translations = {
       brightnessCharsHint: '从暗到亮的字符，用于表示不同亮度级别',
       converting: '转换中...',
       convert: '转换'
+    },
+    fileViewer: {
+      title: '文件查看器',
+      copy: '复制',
+      copied: '已复制',
+      loading: '加载中...',
+      invalidSVG: '无效的 SVG 内容',
+      errors: {
+        noFile: '未指定文件',
+        notTauri: '文件查看仅在桌面应用中支持',
+        loadFailed: '文件加载失败'
+      }
     }
   }
 };
