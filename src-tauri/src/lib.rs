@@ -24,6 +24,10 @@ use image::codecs::jpeg::JpegEncoder;
 use image::codecs::png::PngEncoder;
 use std::io::Cursor;
 use std::fs;
+use std::sync::Mutex;
+
+// 全局变量存储要打开的文件路径
+static OPEN_FILE_PATH: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HttpRequest {
@@ -1542,6 +1546,22 @@ fn read_file_content(file_path: String) -> Result<FileContent, String> {
     })
 }
 
+#[tauri::command]
+fn get_open_file_path() -> Option<String> {
+    if let Ok(open_file) = OPEN_FILE_PATH.lock() {
+        open_file.clone()
+    } else {
+        None
+    }
+}
+
+#[tauri::command]
+fn clear_open_file_path() {
+    if let Ok(mut open_file) = OPEN_FILE_PATH.lock() {
+        *open_file = None;
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use tauri::{Manager, Emitter, Listener};
@@ -1577,10 +1597,25 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
-            // 监听文件打开事件
-            app.listen("tauri://file-drop", move |_event| {
-                println!("File drop event received");
-            });
+            // 处理命令行参数（用于右键菜单打开文件）
+            let args: Vec<String> = std::env::args().collect();
+            for arg in &args {
+                let path = std::path::Path::new(arg);
+                if path.exists() {
+                    let extension = path.extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+                    
+                    if ["svg", "md", "markdown", "mmd", "mermaid"].contains(&extension.as_str()) {
+                        println!("File to open: {}", arg);
+                        // 存储文件路径到全局变量
+                        if let Ok(mut open_file) = OPEN_FILE_PATH.lock() {
+                            *open_file = Some(arg.clone());
+                        }
+                    }
+                }
+            }
             
             // 监听 macOS 系统菜单事件
             #[cfg(target_os = "macos")]
@@ -1692,7 +1727,9 @@ pub fn run() {
             check_tls_versions,
             scan_ports,
             traceroute,
-            read_file_content
+            read_file_content,
+            get_open_file_path,
+            clear_open_file_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

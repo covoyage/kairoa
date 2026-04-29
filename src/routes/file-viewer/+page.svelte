@@ -21,24 +21,44 @@
     if (browser && typeof window !== 'undefined') {
       isTauri = '__TAURI_INTERNALS__' in window;
       
-      // 从 URL 参数或 localStorage 获取文件路径
+      // 从 URL 参数获取文件路径
       const params = new URLSearchParams(window.location.search);
       const path = params.get('path');
       
       if (path) {
         filePath = path;
         await loadFile(path);
-      } else {
-        // 尝试从 localStorage 获取
-        const savedPath = localStorage.getItem('kairoa-open-file-path');
-        if (savedPath) {
-          filePath = savedPath;
-          await loadFile(savedPath);
-          localStorage.removeItem('kairoa-open-file-path');
-        } else {
+      } else if (isTauri) {
+        // Tauri 环境，调用 Rust 命令获取文件路径
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const openFilePath = await invoke('get_open_file_path');
+          
+          if (openFilePath) {
+            filePath = openFilePath as string;
+            await loadFile(filePath);
+            // 清除已打开的文件路径
+            await invoke('clear_open_file_path');
+          } else {
+            // 尝试从 localStorage 获取
+            const savedPath = localStorage.getItem('kairoa-open-file-path');
+            if (savedPath) {
+              filePath = savedPath;
+              await loadFile(savedPath);
+              localStorage.removeItem('kairoa-open-file-path');
+            } else {
+              isLoading = false;
+              error = t('fileViewer.errors.noFile');
+            }
+          }
+        } catch (err) {
+          console.error('Failed to get open file path:', err);
           isLoading = false;
-          error = t('fileViewer.errors.noFile');
+          error = t('fileViewer.errors.loadFailed');
         }
+      } else {
+        isLoading = false;
+        error = t('fileViewer.errors.noFile');
       }
     }
   });

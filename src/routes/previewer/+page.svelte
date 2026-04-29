@@ -93,6 +93,35 @@
   // 初次加载时恢复本地数据
   loadSavedState();
   
+  // 检查是否有打开的文件需要加载
+  onMount(async () => {
+    isTauri = '__TAURI_INTERNALS__' in window;
+    
+    const savedPath = localStorage.getItem('kairoa-open-file-path');
+    if (savedPath && isTauri) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const fileData = await invoke('read_file_content', { filePath: savedPath });
+        const content = (fileData as any).content;
+        
+        if (content) {
+          if (activeView === 'svg') {
+            svgContent = content;
+          } else if (activeView === 'markdown') {
+            markdownContent = content;
+          } else if (activeView === 'mermaid') {
+            mermaidContent = content;
+          }
+          saveState();
+        }
+      } catch (err) {
+        console.error('Failed to load file content:', err);
+      } finally {
+        localStorage.removeItem('kairoa-open-file-path');
+      }
+    }
+  });
+  
   // 更新行号显示
   function updateLineNumbers(textarea: HTMLTextAreaElement | null, lineNumbersDiv: HTMLDivElement | null) {
     if (!textarea || !lineNumbersDiv) return;

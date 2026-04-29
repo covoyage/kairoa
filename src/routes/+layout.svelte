@@ -15,33 +15,58 @@
   let updateDialog: any;
   let settingsDialog: any;
 
-  onMount(() => {
+  onMount(async () => {
     theme.init();
     locale.init();
     
     // Initialize deep link listener
     initDeepLinkListener((route: string) => goto(route));
     
-    // 监听文件打开事件
+    // 检查是否有文件需要打开（Tauri 环境）
     if (browser && typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-      import('@tauri-apps/api/event').then((eventModule) => {
-        // 监听文件拖放事件
-        eventModule.listen('tauri://file-drop', async (event: any) => {
-          const paths = event.payload.paths as string[];
-          if (paths && paths.length > 0) {
-            const filePath = paths[0];
-            // 存储文件路径并导航到文件查看器
-            localStorage.setItem('kairoa-open-file-path', filePath);
-            goto('/file-viewer');
-          }
-        });
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const openFilePath = await invoke('get_open_file_path');
         
-        // 监听命令行参数（用于右键菜单打开文件）
-        eventModule.listen('tauri://open-file', async (event: any) => {
+        if (openFilePath) {
+          const filePath = openFilePath as string;
+          console.log('Opening file on startup:', filePath);
+          
+          // 根据文件扩展名确定类型并导航到 previewer
+          const ext = filePath.split('.').pop()?.toLowerCase();
+          let type = 'svg';
+          if (ext === 'md' || ext === 'markdown') {
+            type = 'markdown';
+          } else if (ext === 'mmd' || ext === 'mermaid') {
+            type = 'mermaid';
+          }
+          
+          localStorage.setItem('kairoa-open-file-path', filePath);
+          await invoke('clear_open_file_path');
+          goto(`/previewer?type=${type}`);
+        }
+      } catch (err) {
+        console.error('Failed to check open file path:', err);
+      }
+      
+      // 监听文件打开事件（应用运行时右键打开文件）
+      import('@tauri-apps/api/event').then((eventModule) => {
+        eventModule.listen('open-file', async (event: any) => {
           const filePath = event.payload as string;
           if (filePath) {
+            console.log('Opening file:', filePath);
+            
+            // 根据文件扩展名确定类型并导航到 previewer
+            const ext = filePath.split('.').pop()?.toLowerCase();
+            let type = 'svg';
+            if (ext === 'md' || ext === 'markdown') {
+              type = 'markdown';
+            } else if (ext === 'mmd' || ext === 'mermaid') {
+              type = 'mermaid';
+            }
+            
             localStorage.setItem('kairoa-open-file-path', filePath);
-            goto('/file-viewer');
+            goto(`/previewer?type=${type}`);
           }
         });
       });
