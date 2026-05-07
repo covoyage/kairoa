@@ -7,6 +7,7 @@
   let output = $state('');
   let isEncoding = $state(true);
   let copied = $state(false);
+  let urlSafe = $state(false);
 
   let translations = $derived($translationsStore);
 
@@ -42,7 +43,11 @@
     }
 
     try {
-      output = btoa(unescape(encodeURIComponent(input)));
+      let encoded = btoa(unescape(encodeURIComponent(input)));
+      if (urlSafe) {
+        encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+      output = encoded;
     } catch (error) {
       output = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
@@ -55,7 +60,16 @@
     }
 
     try {
-      output = decodeURIComponent(escape(atob(input)));
+      let decoded = input;
+      // 自动检测 URL Safe 格式
+      if (decoded.includes('-') || decoded.includes('_')) {
+        decoded = decoded.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      // 补齐 padding
+      while (decoded.length % 4 !== 0) {
+        decoded += '=';
+      }
+      output = decodeURIComponent(escape(atob(decoded)));
     } catch (error) {
       output = `Error: ${error instanceof Error ? error.message : 'Invalid Base64'}`;
     }
@@ -130,6 +144,21 @@
           oninput={isEncoding ? encode : decode}
         ></textarea>
       </div>
+
+      {#if isEncoding}
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="url-safe"
+            bind:checked={urlSafe}
+            onchange={() => { if (input) encode(); }}
+            class="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
+          />
+          <label for="url-safe" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+            URL Safe (Base64URL)
+          </label>
+        </div>
+      {/if}
 
       {#if output}
         <div>

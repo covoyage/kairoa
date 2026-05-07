@@ -29,6 +29,7 @@
   let output = $state('');
   let isEncoding = $state(true);
   let copied = $state(false);
+  let urlSafe = $state(false);
   let selectedImageFile = $state<File | null>(null);
   
   // Unicode encoding modes
@@ -103,7 +104,11 @@
     }
 
     try {
-      output = btoa(unescape(encodeURIComponent(input)));
+      let encoded = btoa(unescape(encodeURIComponent(input)));
+      if (urlSafe) {
+        encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+      output = encoded;
     } catch (error) {
       output = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
     }
@@ -116,7 +121,16 @@
     }
 
     try {
-      input = decodeURIComponent(escape(atob(output)));
+      let decoded = output;
+      // 自动检测 URL Safe 格式
+      if (decoded.includes('-') || decoded.includes('_')) {
+        decoded = decoded.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      // 补齐 padding
+      while (decoded.length % 4 !== 0) {
+        decoded += '=';
+      }
+      input = decodeURIComponent(escape(atob(decoded)));
     } catch (error) {
       input = `Error: ${error instanceof Error ? error.message : 'Invalid Base64'}`;
     }
@@ -213,6 +227,48 @@
       }
       
       input = dataUri;
+    } catch (error) {
+      input = `Error: ${error instanceof Error ? error.message : 'Invalid Base64'}`;
+    }
+  }
+
+  function encodeImageBase64UrlSafe() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      // 先进行标准 Base64 编码
+      encodeImageBase64();
+      // 然后转换为 URL Safe 格式
+      if (output) {
+        output = output.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Invalid image data'}`;
+    }
+  }
+
+  function decodeImageBase64UrlSafe() {
+    if (!output.trim()) {
+      input = '';
+      return;
+    }
+
+    try {
+      // 先转换回标准 Base64 格式
+      let decoded = output.trim();
+      if (decoded.includes('-') || decoded.includes('_')) {
+        decoded = decoded.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      // 补齐 padding
+      while (decoded.length % 4 !== 0) {
+        decoded += '=';
+      }
+      output = decoded;
+      // 然后进行标准解码
+      decodeImageBase64();
     } catch (error) {
       input = `Error: ${error instanceof Error ? error.message : 'Invalid Base64'}`;
     }
@@ -549,9 +605,17 @@
       }
     } else if (encodeType === 'image-base64') {
       if (isEncoding) {
-        encodeImageBase64();
+        if (urlSafe) {
+          encodeImageBase64UrlSafe();
+        } else {
+          encodeImageBase64();
+        }
       } else {
-        decodeImageBase64();
+        if (urlSafe) {
+          decodeImageBase64UrlSafe();
+        } else {
+          decodeImageBase64();
+        }
       }
     } else if (encodeType === 'url') {
       if (isEncoding) {
@@ -1186,6 +1250,20 @@
                 </button>
               </div>
             {/if}
+            {#if (encodeType === 'base64' || encodeType === 'image-base64') && isEncoding}
+              <div class="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="url-safe"
+                  bind:checked={urlSafe}
+                  onchange={() => { if (input) process(); }}
+                  class="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label for="url-safe" class="text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                  URL Safe (Base64URL)
+                </label>
+              </div>
+            {/if}
           </div>
           <div class="relative flex-1">
             {#if encodeType === 'image-base64' && isEncoding}
@@ -1239,7 +1317,8 @@
                   class="max-w-full max-h-full object-contain"
                   onerror={(e) => {
                     // 如果图片加载失败，显示错误信息
-                    e.currentTarget.style.display = 'none';
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.style.display = 'none';
                   }}
                 />
               </div>
