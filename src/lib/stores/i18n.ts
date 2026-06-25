@@ -57,7 +57,8 @@ const translations = {
       userAgentDesc: 'Parse and analyze User-Agent strings to extract browser, OS, and device information',
       httpStatusDesc: 'Query HTTP status codes with detailed descriptions and RFC references',
       tracerouteDesc: 'Trace the route packets take to reach a destination host',
-      asciiArtDesc: 'Convert text to ASCII art'
+      asciiArtDesc: 'Convert text to ASCII art',
+      fileToMarkdownDesc: 'Convert documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, EPUB, IPYNB, TXT, images) to Markdown'
     },
     nav: {
       hash: 'Hash Calculator',
@@ -110,6 +111,7 @@ const translations = {
       httpStatus: 'HTTP Status Code Lookup',
       asciiArt: 'ASCII Art',
       fileViewer: 'File Viewer',
+      fileToMarkdown: 'File to Markdown',
       settings: 'Settings'
     },
     aiChat: {
@@ -2648,6 +2650,30 @@ const translations = {
         notTauri: 'File viewing is only supported in the desktop app',
         loadFailed: 'Failed to load file'
       }
+    },
+    fileToMarkdown: {
+      title: 'File to Markdown',
+      description: 'Convert documents (PDF, DOCX, XLSX, PPTX, HTML, CSV, EPUB, IPYNB, TXT, images) to Markdown',
+      dropHere: 'Drop your file here',
+      clickToUpload: 'or click to upload',
+      supportedFormats: 'Supported formats: PDF, DOCX, XLSX, PPTX, HTML, TXT, CSV, JSON, MD, EPUB, and more',
+      selectedFile: 'Selected File',
+      fileName: 'File Name',
+      fileSize: 'File Size',
+      convert: 'Convert',
+      converting: 'Converting...',
+      result: 'Result',
+      copy: 'Copy',
+      copied: 'Copied',
+      download: 'Download',
+      clear: 'Clear',
+      errorNoFile: 'Please select a file first',
+      errorConvertFailed: 'Conversion failed',
+      uploadAnother: 'Upload Another File',
+      conversionTime: 'Conversion time',
+      preview: 'Preview',
+      raw: 'Raw',
+      close: 'Close'
     }
   },
   zh: {
@@ -2703,7 +2729,8 @@ const translations = {
       mimeTypeDesc: '通过文件扩展名或 MIME 类型字符串查询 MIME 类型',
       userAgentDesc: '解析和分析 User-Agent 字符串，提取浏览器、操作系统和设备信息',
       httpStatusDesc: '查询 HTTP 状态码，包含详细描述和 RFC 参考',
-      asciiArtDesc: '将文本转换为 ASCII 艺术字'
+      asciiArtDesc: '将文本转换为 ASCII 艺术字',
+      fileToMarkdownDesc: '将文档（PDF、DOCX、XLSX、PPTX、HTML、CSV、EPUB、IPYNB、TXT、图片）转换为 Markdown'
     },
     nav: {
       hash: 'Hash 计算器',
@@ -2741,6 +2768,7 @@ const translations = {
       keycode: '按键代码信息',
       passwordStrength: '密码强度检测器',
       passwordVault: '密码保险库',
+      fileViewer: '文件查看器',
       basicAuth: 'Basic Auth 生成器',
       otp: 'OTP 生成器',
       hmac: 'HMAC 生成器',
@@ -2755,6 +2783,7 @@ const translations = {
       userAgent: 'User-Agent 解析器',
       httpStatus: 'HTTP 状态码查询',
       asciiArt: 'ASCII 艺术',
+      fileToMarkdown: '文件转 Markdown',
       settings: '设置'
     },
     dataConverter: {
@@ -5293,6 +5322,30 @@ const translations = {
         notTauri: '文件查看仅在桌面应用中支持',
         loadFailed: '文件加载失败'
       }
+    },
+    fileToMarkdown: {
+      title: '文件转 Markdown',
+      description: '将文档（PDF、DOCX、XLSX、PPTX、HTML、CSV、EPUB、IPYNB、TXT、图片）转换为 Markdown',
+      dropHere: '将文件拖放到此处',
+      clickToUpload: '或点击上传',
+      supportedFormats: '支持格式：PDF、DOCX、XLSX、PPTX、HTML、TXT、CSV、JSON、MD、EPUB 等',
+      selectedFile: '已选文件',
+      fileName: '文件名',
+      fileSize: '文件大小',
+      convert: '转换',
+      converting: '转换中...',
+      result: '转换结果',
+      copy: '复制',
+      copied: '已复制',
+      download: '下载',
+      clear: '清空',
+      errorNoFile: '请先选择文件',
+      errorConvertFailed: '转换失败',
+      uploadAnother: '上传其他文件',
+      conversionTime: '转换耗时',
+      preview: '预览',
+      raw: '原文',
+      close: '关闭'
     }
   }
 };

@@ -1564,7 +1564,7 @@ fn clear_open_file_path() {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use tauri::{Manager, Emitter, Listener};
+    use tauri::{Emitter, Manager};
     
     // 在 Linux 系统上，设置环境变量以解决白屏问题
     // 这主要是由于 WebKit2GTK 与 NVIDIA GPU 的兼容性问题

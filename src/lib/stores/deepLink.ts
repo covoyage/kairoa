@@ -91,6 +91,7 @@ export const TOOL_CONFIGS: Record<string, {
   'http-status': { route: '/http-status', params: ['code'] },
   'env-manager': { route: '/env-manager', params: [] },
   'git-commands': { route: '/git-commands', params: [] },
+  'file-to-markdown': { route: '/file-to-markdown', params: [] },
 };
 
 /**
