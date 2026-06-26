@@ -54,6 +54,12 @@ jobs:
         if: matrix.platform == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Set Windows build env
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        run: |
+          echo "AWS_LC_SYS_CFLAGS=/std:c11" >> $GITHUB_ENV
+
       - name: Install frontend dependencies
         run: npm ci
 
