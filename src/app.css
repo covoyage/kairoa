@@ -201,6 +201,93 @@
     @apply input resize-none;
   }
 
+  /* JSON syntax highlighting overlay (for API client body editor) */
+  .json-editor-container {
+    position: relative;
+  }
+
+  .json-editor-overlay,
+  .json-editor-textarea {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    tab-size: 2;
+    -moz-tab-size: 2;
+  }
+
+  .json-editor-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: auto;
+  }
+
+  .json-editor-textarea {
+    position: relative;
+    z-index: 2;
+    background: transparent !important;
+    color: transparent;
+    caret-color: #111827;
+    resize: none;
+    outline: none;
+    width: 100%;
+  }
+
+  .dark .json-editor-textarea {
+    caret-color: #f3f4f6;
+  }
+
+  /* Override hljs defaults for overlay */
+  .json-editor-overlay .hljs {
+    background: transparent !important;
+    padding: 0 !important;
+    color: inherit;
+  }
+
+  /* Light mode JSON token colors */
+  .json-editor-overlay .hljs-attr,
+  .json-editor-overlay .hljs-attribute { color: #6f42c1; }
+  .json-editor-overlay .hljs-string,
+  .json-editor-overlay .hljs-meta .hljs-string { color: #032f62; }
+  .json-editor-overlay .hljs-number { color: #005cc5; }
+  .json-editor-overlay .hljs-literal { color: #d73a49; }
+  .json-editor-overlay .hljs-keyword { color: #d73a49; }
+  .json-editor-overlay .hljs-punctuation { color: #6a737d; }
+
+  /* Dark mode JSON token colors */
+  .dark .json-editor-overlay .hljs-attr,
+  .dark .json-editor-overlay .hljs-attribute { color: #b392f0; }
+  .dark .json-editor-overlay .hljs-string,
+  .dark .json-editor-overlay .hljs-meta .hljs-string { color: #9ecbff; }
+  .dark .json-editor-overlay .hljs-number { color: #79b8ff; }
+  .dark .json-editor-overlay .hljs-literal { color: #f97583; }
+  .dark .json-editor-overlay .hljs-keyword { color: #f97583; }
+  .dark .json-editor-overlay .hljs-punctuation { color: #8b949e; }
+
+  /* XML token colors (light mode) */
+  .json-editor-overlay .hljs-tag { color: #6a737d; }
+  .json-editor-overlay .hljs-name { color: #22863a; }
+  .json-editor-overlay .hljs-comment { color: #6a737d; font-style: italic; }
+  .json-editor-overlay .hljs-meta { color: #6f42c1; }
+  .json-editor-overlay .hljs-doctype { color: #6f42c1; }
+  .json-editor-overlay .hljs-cdata { color: #005cc5; }
+
+  /* XML token colors (dark mode) */
+  .dark .json-editor-overlay .hljs-tag { color: #8b949e; }
+  .dark .json-editor-overlay .hljs-name { color: #7ee787; }
+  .dark .json-editor-overlay .hljs-comment { color: #8b949e; font-style: italic; }
+  .dark .json-editor-overlay .hljs-meta { color: #b392f0; }
+  .dark .json-editor-overlay .hljs-doctype { color: #b392f0; }
+  .dark .json-editor-overlay .hljs-cdata { color: #79b8ff; }
+
   .markdown-content {
     @apply text-gray-900 dark:text-gray-100;
   }

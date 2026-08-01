@@ -1,7 +1,8 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, Code } from 'lucide-svelte';
+  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, Code, Braces } from 'lucide-svelte';
   import { browser } from '$app/environment';
+  import hljs from 'highlight.js';
   
   // 动态导入 Tauri API（仅在浏览器环境中可用）
   let invokeFn: ((cmd: string, args?: any) => Promise<any>) | null = $state(null);
@@ -203,6 +204,8 @@
   let requestView = $state<'headers' | 'body'>('headers');
   let showResponseDialog = $state(false);
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
+  let jsonOverlayRef = $state<HTMLElement | null>(null);
+  let xmlOverlayRef = $state<HTMLElement | null>(null);
   const STORAGE_KEY = 'apiClient.tabs.v1';
   const STORAGE_ACTIVE_KEY = 'apiClient.activeTabId.v1';
   let hasLoadedFromStorage = false;
@@ -285,6 +288,99 @@
     activeTabId;
     saveTabs();
   });
+
+  // ── Body syntax highlighting ──
+  let highlightedJson = $derived.by(() => {
+    const json = activeTab?.bodyJson ?? '';
+    if (!json.trim()) return '';
+    try {
+      return hljs.highlight(json, { language: 'json' }).value;
+    } catch {
+      return json;
+    }
+  });
+
+  let highlightedXml = $derived.by(() => {
+    const xml = activeTab?.bodyXml ?? '';
+    if (!xml.trim()) return '';
+    try {
+      return hljs.highlight(xml, { language: 'xml' }).value;
+    } catch {
+      return xml;
+    }
+  });
+
+  function syncJsonScroll() {
+    if (jsonOverlayRef && bodyTextareaRef) {
+      jsonOverlayRef.scrollTop = bodyTextareaRef.scrollTop;
+      jsonOverlayRef.scrollLeft = bodyTextareaRef.scrollLeft;
+    }
+  }
+
+  function syncXmlScroll() {
+    if (xmlOverlayRef && bodyTextareaRef) {
+      xmlOverlayRef.scrollTop = bodyTextareaRef.scrollTop;
+      xmlOverlayRef.scrollLeft = bodyTextareaRef.scrollLeft;
+    }
+  }
+
+  function formatJson() {
+    if (!activeTab?.bodyJson?.trim()) return;
+    try {
+      const parsed = JSON.parse(activeTab.bodyJson);
+      activeTab.bodyJson = JSON.stringify(parsed, null, 2);
+      setTimeout(() => { if (bodyTextareaRef) autoResizeTextarea(bodyTextareaRef); }, 0);
+    } catch {
+      // ignore invalid JSON
+    }
+  }
+
+  function minifyJson() {
+    if (!activeTab?.bodyJson?.trim()) return;
+    try {
+      const parsed = JSON.parse(activeTab.bodyJson);
+      activeTab.bodyJson = JSON.stringify(parsed);
+      setTimeout(() => { if (bodyTextareaRef) autoResizeTextarea(bodyTextareaRef); }, 0);
+    } catch {
+      // ignore invalid JSON
+    }
+  }
+
+  function formatXml() {
+    if (!activeTab?.bodyXml?.trim()) return;
+    const xml = activeTab.bodyXml.trim();
+    let formatted = '';
+    let indent = 0;
+    const pad = '  ';
+    // Simple XML formatter: tokenize tags and text
+    const reg = /(<\/?[\w:.-]+[^>]*>|<!--[^]*?-->|>[^<]*<)/g;
+    let last = 0;
+    let match;
+    while ((match = reg.exec(xml)) !== null) {
+      const between = xml.slice(last, match.index).trim();
+      if (between) formatted += pad.repeat(indent) + between + '\n';
+      const tok = match[0];
+      if (tok.startsWith('</')) {
+        indent = Math.max(0, indent - 1);
+        formatted += pad.repeat(indent) + tok + '\n';
+      } else if (tok.startsWith('<!') || tok.startsWith('<?')) {
+        formatted += pad.repeat(indent) + tok + '\n';
+      } else if (tok.endsWith('/>')) {
+        formatted += pad.repeat(indent) + tok + '\n';
+      } else if (tok.startsWith('>')) {
+        // text content + opening of next tag
+        formatted += pad.repeat(indent) + tok + '\n';
+      } else {
+        formatted += pad.repeat(indent) + tok + '\n';
+        indent++;
+      }
+      last = match.index + tok.length;
+    }
+    const trailing = xml.slice(last).trim();
+    if (trailing) formatted += trailing;
+    activeTab.bodyXml = formatted || xml;
+    setTimeout(() => { if (bodyTextareaRef) autoResizeTextarea(bodyTextareaRef); }, 0);
+  }
 
   // 切换 Body 类型或内容变化时自适应高度
   $effect(() => {
@@ -1583,19 +1679,30 @@
             </div>
 
             {#if activeTab.bodyType === 'json'}
-              <textarea
-                bind:this={bodyTextareaRef}
-                bind:value={activeTab.bodyJson}
-                placeholder={t('apiClient.jsonPlaceholder')}
-                class="textarea font-mono text-sm min-h-[150px]"
-                style="ime-mode: disabled;"
-                inputmode="text"
-                autocomplete="off"
-                autocapitalize="off"
-                spellcheck="false"
-                oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
-                onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
-              ></textarea>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400">JSON</span>
+                <div class="flex gap-2">
+                  <button onclick={formatJson} class="btn-secondary text-xs px-2 py-1" title="Format JSON">{t('apiClient.format')}</button>
+                  <button onclick={minifyJson} class="btn-secondary text-xs px-2 py-1" title="Minify JSON">{t('apiClient.minify')}</button>
+                </div>
+              </div>
+              <div class="json-editor-container">
+                <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={jsonOverlayRef} aria-hidden="true"><code class="hljs language-json">{@html highlightedJson}</code></pre>
+                <textarea
+                  bind:this={bodyTextareaRef}
+                  bind:value={activeTab.bodyJson}
+                  placeholder={t('apiClient.jsonPlaceholder')}
+                  class="json-editor-textarea textarea font-mono text-sm min-h-[150px]"
+                  style="ime-mode: disabled;"
+                  inputmode="text"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                  onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                  onscroll={syncJsonScroll}
+                ></textarea>
+              </div>
             {:else if activeTab.bodyType === 'text'}
               <textarea
                 bind:this={bodyTextareaRef}
@@ -1611,19 +1718,27 @@
                 onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
               ></textarea>
             {:else if activeTab.bodyType === 'xml'}
-              <textarea
-                bind:this={bodyTextareaRef}
-                bind:value={activeTab.bodyXml}
-                placeholder={t('apiClient.xmlPlaceholder')}
-                class="textarea font-mono text-sm min-h-[150px]"
-                style="ime-mode: disabled;"
-                inputmode="text"
-                autocomplete="off"
-                autocapitalize="off"
-                spellcheck="false"
-                oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
-                onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
-              ></textarea>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs text-gray-500 dark:text-gray-400">XML</span>
+                <button onclick={formatXml} class="btn-secondary text-xs px-2 py-1" title="Format XML">{t('apiClient.format')}</button>
+              </div>
+              <div class="json-editor-container">
+                <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={xmlOverlayRef} aria-hidden="true"><code class="hljs language-xml">{@html highlightedXml}</code></pre>
+                <textarea
+                  bind:this={bodyTextareaRef}
+                  bind:value={activeTab.bodyXml}
+                  placeholder={t('apiClient.xmlPlaceholder')}
+                  class="json-editor-textarea textarea font-mono text-sm min-h-[150px]"
+                  style="ime-mode: disabled;"
+                  inputmode="text"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  oninput={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                  onfocus={(e) => autoResizeTextarea(e.currentTarget as HTMLTextAreaElement)}
+                  onscroll={syncXmlScroll}
+                ></textarea>
+              </div>
             {:else if activeTab.bodyType === 'form-data' || activeTab.bodyType === 'url-encoded'}
               <div>
                 <div class="flex items-center justify-end mb-3">
