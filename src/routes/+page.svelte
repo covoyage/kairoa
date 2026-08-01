@@ -1,7 +1,7 @@
 <script lang="ts">
 import { translationsStore } from '$lib/stores/i18n';
 import { goto } from '$app/navigation';
- import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare, FileOutput, CalendarClock } from 'lucide-svelte';
+ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Globe, Eye, Lock, Image, Search, X, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, Shield, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare, FileOutput, CalendarClock, ShieldQuestion } from 'lucide-svelte';
 
   let translations = $derived($translationsStore);
   let searchQuery = $state('');
@@ -57,7 +57,11 @@ import { goto } from '$app/navigation';
         { label: 'URL', key: 'encodeDecode.urlEncoded', type: 'url' },
         { label: 'ASCII', key: 'encodeDecode.ascii', type: 'ascii' },
         { label: 'Hex', key: 'encodeDecode.hexadecimal', type: 'hex' },
-        { label: 'JWT', key: 'jwt.title', type: 'jwt' }
+        { label: 'JWT', key: 'jwt.title', type: 'jwt' },
+        { label: 'HTML', key: 'encodeDecode.html', type: 'html' },
+        { label: 'Unicode', key: 'encodeDecode.unicode', type: 'unicode' },
+        { label: 'GZIP', key: 'encodeDecode.gzip', type: 'gzip' },
+        { label: 'Bech32', key: 'encodeDecode.bech32', type: 'bech32' }
       ]
     },
     { 
@@ -122,6 +126,7 @@ import { goto } from '$app/navigation';
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode', subItems: [] },
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature', subItems: [] },
     { path: '/certificate-viewer', icon: FileCheck, key: 'nav.certificateViewer', subItems: [] },
+    { path: '/saml-decoder', icon: ShieldQuestion, key: 'nav.samlDecoder', subItems: [] },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker', subItems: [] },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner', subItems: [] },
     { path: '/traceroute', icon: Route, key: 'nav.traceroute', subItems: [] },

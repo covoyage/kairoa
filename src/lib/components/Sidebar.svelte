@@ -3,7 +3,7 @@
   import { locale, translationsStore } from '$lib/stores/i18n';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare, FileOutput, CalendarClock } from 'lucide-svelte';
+import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, Shield, Globe, Minimize2, Maximize2, Settings, GitCompare, Eye, Lock, Image, QrCode, Terminal, Keyboard, ShieldCheck, Timer, Sparkles, Calculator, FileSignature, Radar, Regex, Database, DatabaseZap, FileSpreadsheet, Banknote, FileCheck, MapPin, Radio, Network, GitBranch, Container, FileCode, KeyRound, Server, Vault, FileType, Type, MonitorSmartphone, CheckCircle, Route, MessageSquare, FileOutput, CalendarClock, ShieldQuestion } from 'lucide-svelte';
 
   const navItems = [
     { path: '/ai-chat', icon: MessageSquare, key: 'nav.aiChat' },
@@ -36,8 +36,12 @@ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, 
         { label: 'Image Base64', key: 'encodeDecode.imageBase64', type: 'image-base64' },
         { label: 'URL', key: 'encodeDecode.urlEncoded', type: 'url' },
         { label: 'ASCII', key: 'encodeDecode.ascii', type: 'ascii' },
+        { label: 'Hex', key: 'encodeDecode.hexadecimal', type: 'hex' },
         { label: 'JWT', key: 'jwt.title', type: 'jwt' },
-        { label: 'HTML', key: 'encodeDecode.html', type: 'html' }
+        { label: 'HTML', key: 'encodeDecode.html', type: 'html' },
+        { label: 'Unicode', key: 'encodeDecode.unicode', type: 'unicode' },
+        { label: 'GZIP', key: 'encodeDecode.gzip', type: 'gzip' },
+        { label: 'Bech32', key: 'encodeDecode.bech32', type: 'bech32' }
       ]
     },
     { 
@@ -97,6 +101,7 @@ import { Hash, Clock, Key, FileJson, Code, Calendar, Palette, Binary, FileText, 
     { path: '/qr-code', icon: QrCode, key: 'nav.qrCode' },
     { path: '/pdf-signature', icon: FileSignature, key: 'nav.pdfSignature' },
     { path: '/certificate-viewer', icon: FileCheck, key: 'nav.certificateViewer' },
+    { path: '/saml-decoder', icon: ShieldQuestion, key: 'nav.samlDecoder' },
     { path: '/tls-checker', icon: ShieldCheck, key: 'nav.tlsChecker' },
     { path: '/port-scanner', icon: Radar, key: 'nav.portScanner' },
     { path: '/traceroute', icon: Route, key: 'nav.traceroute' },

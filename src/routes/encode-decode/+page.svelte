@@ -5,7 +5,7 @@
   import { page } from '$app/stores';
   import { browser } from '$app/environment';
   
-  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html' | 'unicode' | 'hex';
+  type EncodeType = 'base64' | 'image-base64' | 'url' | 'ascii' | 'jwt' | 'html' | 'unicode' | 'hex' | 'gzip' | 'bech32';
   
   let encodeType = $state<EncodeType>('base64');
   
@@ -20,7 +20,9 @@
       typeParam === 'jwt' ||
       typeParam === 'html' ||
       typeParam === 'unicode' ||
-      typeParam === 'hex'
+      typeParam === 'hex' ||
+      typeParam === 'gzip' ||
+      typeParam === 'bech32'
     ) {
       encodeType = typeParam as EncodeType;
     }
@@ -410,6 +412,258 @@
     }
   }
 
+  // ── GZIP compress / decompress ──
+  async function gzipCompress() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(input);
+
+      if (typeof CompressionStream === 'undefined') {
+        throw new Error('CompressionStream is not supported in this browser');
+      }
+
+      const cs = new CompressionStream('gzip');
+      const writer = cs.writable.getWriter();
+      writer.write(data);
+      writer.close();
+
+      const reader = cs.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalLen = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        totalLen += value.length;
+      }
+
+      const result = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const c of chunks) {
+        result.set(c, offset);
+        offset += c.length;
+      }
+
+      // Convert to Base64 for text representation
+      let binary = '';
+      for (let i = 0; i < result.length; i++) {
+        binary += String.fromCharCode(result[i]);
+      }
+      output = btoa(binary);
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'GZIP compression failed'}`;
+    }
+  }
+
+  async function gzipDecompress() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+
+    try {
+      // Decode from Base64 to bytes
+      let b64 = input.replace(/\s/g, '');
+      while (b64.length % 4) b64 += '=';
+      const binary = atob(b64);
+      const data = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        data[i] = binary.charCodeAt(i);
+      }
+
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error('DecompressionStream is not supported in this browser');
+      }
+
+      const ds = new DecompressionStream('gzip');
+      const writer = ds.writable.getWriter();
+      writer.write(data);
+      writer.close();
+
+      const reader = ds.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      let totalLen = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        totalLen += value.length;
+      }
+
+      const result = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const c of chunks) {
+        result.set(c, offset);
+        offset += c.length;
+      }
+
+      output = new TextDecoder().decode(result);
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'GZIP decompression failed. Make sure the input is valid Base64-encoded GZIP data.'}`;
+    }
+  }
+
+  // ── Bech32 encode / decode (BIP-173) ──
+  const BECH32_CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+  const BECH32M_CONST = 0x2bc830a3;
+
+  function bech32Polymod(values: number[]): number {
+    const gen = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+    let chk = 1;
+    for (const v of values) {
+      const b = chk >> 25;
+      chk = ((chk & 0x1ffffff) << 5) ^ v;
+      for (let i = 0; i < 5; i++) {
+        if ((b >> i) & 1) {
+          chk ^= gen[i];
+        }
+      }
+    }
+    return chk;
+  }
+
+  function bech32HrpExpand(hrp: string): number[] {
+    const ret: number[] = [];
+    for (const c of hrp) {
+      ret.push(c.charCodeAt(0) >> 5);
+    }
+    ret.push(0);
+    for (const c of hrp) {
+      ret.push(c.charCodeAt(0) & 31);
+    }
+    return ret;
+  }
+
+  function bech32CreateChecksum(hrp: string, data: number[], spec: 'bech32' | 'bech32m'): string {
+    const values = bech32HrpExpand(hrp).concat(data);
+    const constant = spec === 'bech32' ? 1 : BECH32M_CONST;
+    const polymod = bech32Polymod(values.concat([0, 0, 0, 0, 0, 0])) ^ constant;
+    let ret = '';
+    for (let i = 0; i < 6; i++) {
+      ret += BECH32_CHARSET[(polymod >> (5 * (5 - i))) & 31];
+    }
+    return ret;
+  }
+
+  function bech32VerifyChecksum(hrp: string, data: number[]): 'bech32' | 'bech32m' | null {
+    const values = bech32HrpExpand(hrp).concat(data);
+    const check = bech32Polymod(values);
+    if (check === 1) return 'bech32';
+    if (check === BECH32M_CONST) return 'bech32m';
+    return null;
+  }
+
+  function convertBits(data: number[], fromBits: number, toBits: number, pad: boolean): number[] {
+    let acc = 0;
+    let bits = 0;
+    const ret: number[] = [];
+    const maxv = (1 << toBits) - 1;
+    const maxAcc = (1 << (fromBits + toBits - 1)) - 1;
+
+    for (const value of data) {
+      if (value < 0 || value >> fromBits !== 0) {
+        throw new Error('Invalid value for conversion');
+      }
+      acc = ((acc << fromBits) | value) & maxAcc;
+      bits += fromBits;
+      while (bits >= toBits) {
+        bits -= toBits;
+        ret.push((acc >> bits) & maxv);
+      }
+    }
+    if (pad) {
+      if (bits) {
+        ret.push((acc << (toBits - bits)) & maxv);
+      }
+    } else if (bits >= fromBits || (acc << (toBits - bits)) & maxv) {
+      throw new Error('Invalid padding in conversion');
+    }
+    return ret;
+  }
+
+  function encodeBech32() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+    try {
+      let hrp = 'bc';
+      let dataStr = input.trim();
+      const colonIdx = dataStr.indexOf(':');
+      if (colonIdx > 0) {
+        hrp = dataStr.substring(0, colonIdx).toLowerCase();
+        dataStr = dataStr.substring(colonIdx + 1);
+      }
+      const hex = dataStr.replace(/^0x/i, '').replace(/\s/g, '');
+      if (!/^[0-9a-fA-F]*$/.test(hex)) {
+        throw new Error('Input must be hex data (e.g., 001122ff or prefix:001122ff)');
+      }
+      const bytes: number[] = [];
+      for (let i = 0; i < hex.length; i += 2) {
+        bytes.push(parseInt(hex.substr(i, 2), 16));
+      }
+      const fiveBit = convertBits(bytes, 8, 5, true);
+      const spec: 'bech32' | 'bech32m' = hrp === 'bcrt' ? 'bech32m' : 'bech32';
+      const checksum = bech32CreateChecksum(hrp, fiveBit, spec);
+      output = `${hrp}1${fiveBit.map(v => BECH32_CHARSET[v]).join('')}${checksum}`;
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Bech32 encoding failed'}`;
+    }
+  }
+
+  function decodeBech32() {
+    if (!input.trim()) {
+      output = '';
+      return;
+    }
+    try {
+      const bech32 = input.trim().toLowerCase();
+      if (bech32.length < 8 || bech32.length > 90) {
+        throw new Error('Invalid Bech32 string length');
+      }
+      if (bech32 !== input.trim() && bech32 !== input.trim().toLowerCase()) {
+        throw new Error('Bech32 must be all lowercase or all uppercase');
+      }
+      const sepIdx = bech32.lastIndexOf('1');
+      if (sepIdx < 1 || sepIdx + 7 > bech32.length) {
+        throw new Error('Invalid Bech32 separator position');
+      }
+      const hrp = bech32.substring(0, sepIdx);
+      for (const c of hrp) {
+        const code = c.charCodeAt(0);
+        if (code < 33 || code > 126) {
+          throw new Error('Invalid character in HRP');
+        }
+      }
+      const dataPart = bech32.substring(sepIdx + 1);
+      const data: number[] = [];
+      for (const c of dataPart) {
+        const idx = BECH32_CHARSET.indexOf(c);
+        if (idx === -1) {
+          throw new Error(`Invalid character '${c}' in data part`);
+        }
+        data.push(idx);
+      }
+      const spec = bech32VerifyChecksum(hrp, data);
+      if (!spec) {
+        throw new Error('Invalid Bech32 checksum');
+      }
+      const payload = data.slice(0, -6);
+      const bytes = convertBits(payload, 5, 8, false);
+      const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+      output = `${hrp}:${hex}`;
+    } catch (error) {
+      output = `Error: ${error instanceof Error ? error.message : 'Bech32 decoding failed'}`;
+    }
+  }
+
   function encodeUnicode() {
     if (!input.trim()) {
       output = '';
@@ -647,6 +901,18 @@
       } else {
         decodeHex();
       }
+    } else if (encodeType === 'gzip') {
+      if (isEncoding) {
+        gzipCompress();
+      } else {
+        gzipDecompress();
+      }
+    } else if (encodeType === 'bech32') {
+      if (isEncoding) {
+        encodeBech32();
+      } else {
+        decodeBech32();
+      }
     }
   }
 
@@ -663,6 +929,54 @@
     } catch (error) {
       console.error('Failed to copy:', error);
     }
+  }
+
+  function getEncodePlaceholder(): string {
+    const map: Record<string, string> = {
+      'base64': t('encodeDecode.encodeBase64Placeholder'),
+      'image-base64': t('encodeDecode.encodeImageBase64Placeholder'),
+      'url': t('encodeDecode.encodeURLPlaceholder'),
+      'html': t('encodeDecode.encodeHTMLPlaceholder'),
+      'unicode': t('encodeDecode.encodeUnicodePlaceholder'),
+      'hex': t('encodeDecode.encodeHexPlaceholder'),
+      'gzip': t('encodeDecode.encodeGzipPlaceholder'),
+      'bech32': t('encodeDecode.encodeBech32Placeholder'),
+      'ascii': t('encodeDecode.encodeASCIIPlaceholder')
+    };
+    return map[encodeType] || '';
+  }
+
+  function getDecodePlaceholder(): string {
+    const map: Record<string, string> = {
+      'base64': t('encodeDecode.decodeBase64Placeholder'),
+      'image-base64': t('encodeDecode.decodeImageBase64Placeholder'),
+      'url': t('encodeDecode.decodeURLPlaceholder'),
+      'html': t('encodeDecode.decodeHTMLPlaceholder'),
+      'unicode': t('encodeDecode.decodeUnicodePlaceholder'),
+      'hex': t('encodeDecode.decodeHexPlaceholder'),
+      'gzip': t('encodeDecode.decodeGzipPlaceholder'),
+      'bech32': t('encodeDecode.decodeBech32Placeholder'),
+      'ascii': t('encodeDecode.decodeASCIIPlaceholder')
+    };
+    return map[encodeType] || '';
+  }
+
+  function getOutputLabel(): string {
+    if (encodeType === 'base64' || encodeType === 'image-base64') return t('encodeDecode.base64');
+    if (encodeType === 'url') return t('encodeDecode.urlEncoded');
+    if (encodeType === 'html') return t('encodeDecode.html');
+    if (encodeType === 'unicode') {
+      if (unicodeMode === 'uplus') return t('encodeDecode.unicodeEncoded');
+      if (unicodeMode === 'escape') return t('encodeDecode.unicodeEscapeEncoded');
+      if (unicodeMode === 'htmlHex') return t('encodeDecode.unicodeHtmlHexEncoded');
+      if (unicodeMode === 'htmlDec') return t('encodeDecode.unicodeHtmlDecEncoded');
+      if (unicodeMode === 'url') return t('encodeDecode.unicodeUrlEncoded');
+      return t('encodeDecode.unicodePythonEncoded');
+    }
+    if (encodeType === 'hex') return t('encodeDecode.textEncoded');
+    if (encodeType === 'gzip') return t('encodeDecode.gzip');
+    if (encodeType === 'bech32') return t('encodeDecode.bech32');
+    return t('encodeDecode.ascii');
   }
 
   function clear() {
@@ -1031,6 +1345,28 @@
               <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:text-primary-400"></span>
             {/if}
           </button>
+          <button
+            onclick={() => switchEncodeType('gzip')}
+            class="px-4 py-2 relative transition-colors font-medium {encodeType === 'gzip'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            GZIP
+            {#if encodeType === 'gzip'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
+            {/if}
+          </button>
+          <button
+            onclick={() => switchEncodeType('bech32')}
+            class="px-4 py-2 relative transition-colors font-medium {encodeType === 'bech32'
+              ? 'text-primary-600 dark:text-primary-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}"
+          >
+            Bech32
+            {#if encodeType === 'bech32'}
+              <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 dark:bg-primary-400"></span>
+            {/if}
+          </button>
         </div>
       </div>
 
@@ -1336,19 +1672,7 @@
                 bind:value={input}
                 readonly={!isEncoding}
                 placeholder={isEncoding 
-                  ? (encodeType === 'base64'
-                    ? t('encodeDecode.encodeBase64Placeholder')
-                    : encodeType === 'image-base64'
-                    ? t('encodeDecode.encodeImageBase64Placeholder')
-                    : encodeType === 'url'
-                    ? t('encodeDecode.encodeURLPlaceholder')
-                    : encodeType === 'html'
-                    ? t('encodeDecode.encodeHTMLPlaceholder')
-                    : encodeType === 'unicode'
-                    ? t('encodeDecode.encodeUnicodePlaceholder')
-                    : encodeType === 'hex'
-                    ? t('encodeDecode.encodeHexPlaceholder')
-                    : t('encodeDecode.encodeASCIIPlaceholder'))
+                  ? getEncodePlaceholder()
                   : ''}
                 class="textarea h-full resize-none {!isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} {!isEncoding && input ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} transition-colors duration-300"
               ></textarea>
@@ -1391,24 +1715,7 @@
         <div class="col-span-5 flex flex-col space-y-2">
           <div class="flex items-center justify-between">
             <div class="block text-base font-bold text-gray-700 dark:text-gray-300">
-              {encodeType === 'base64' 
-                ? t('encodeDecode.base64')
-                : encodeType === 'image-base64'
-                ? t('encodeDecode.base64')
-                : encodeType === 'url'
-                ? t('encodeDecode.urlEncoded')
-                : encodeType === 'html'
-                ? t('encodeDecode.html')
-                : encodeType === 'unicode'
-                ? (unicodeMode === 'uplus' ? t('encodeDecode.unicodeEncoded') 
-                  : unicodeMode === 'escape' ? t('encodeDecode.unicodeEscapeEncoded')
-                  : unicodeMode === 'htmlHex' ? t('encodeDecode.unicodeHtmlHexEncoded')
-                  : unicodeMode === 'htmlDec' ? t('encodeDecode.unicodeHtmlDecEncoded')
-                  : unicodeMode === 'url' ? t('encodeDecode.unicodeUrlEncoded')
-                  : t('encodeDecode.unicodePythonEncoded'))
-                : encodeType === 'hex'
-                ? t('encodeDecode.textEncoded')
-                : t('encodeDecode.ascii')}
+              {getOutputLabel()}
             </div>
             {#if isEncoding && output}
               <button
@@ -1433,19 +1740,7 @@
               bind:value={output}
               readonly={isEncoding}
                 placeholder={!isEncoding 
-                  ? (encodeType === 'base64'
-                    ? t('encodeDecode.decodeBase64Placeholder')
-                    : encodeType === 'image-base64'
-                    ? t('encodeDecode.decodeImageBase64Placeholder')
-                    : encodeType === 'url'
-                    ? t('encodeDecode.decodeURLPlaceholder')
-                    : encodeType === 'html'
-                    ? t('encodeDecode.decodeHTMLPlaceholder')
-                    : encodeType === 'unicode'
-                    ? t('encodeDecode.decodeUnicodePlaceholder')
-                    : encodeType === 'hex'
-                    ? t('encodeDecode.decodeHexPlaceholder')
-                    : t('encodeDecode.decodeASCIIPlaceholder'))
+                  ? getDecodePlaceholder()
                   : ''}
               class="textarea h-full resize-none font-mono text-sm {copied ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700' : ''} {isEncoding ? 'bg-gray-50 dark:bg-gray-800/50 cursor-not-allowed' : ''} transition-colors duration-300"
             ></textarea>
