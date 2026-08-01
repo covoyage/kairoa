@@ -2,7 +2,7 @@
   import * as convert from 'color-convert';
   import { translationsStore } from '$lib/stores/i18n';
 
-  type ColorKey = 'hex' | 'rgb' | 'hsl' | 'hwb' | 'lch' | 'cmyk' | 'name';
+  type ColorKey = 'hex' | 'rgb' | 'hsl' | 'hwb' | 'lch' | 'oklch' | 'cmyk' | 'name';
 
   const defaultHex = '#1ea54c';
 
@@ -12,6 +12,7 @@
     hsl: '',
     hwb: '',
     lch: '',
+    oklch: '',
     cmyk: '',
     name: ''
   });
@@ -26,6 +27,7 @@
     { key: 'hsl', label: () => t('color.labels.hsl') },
     { key: 'hwb', label: () => t('color.labels.hwb') },
     { key: 'lch', label: () => t('color.labels.lch') },
+    { key: 'oklch', label: () => t('color.labels.oklch') },
     { key: 'cmyk', label: () => t('color.labels.cmyk') },
     { key: 'name', label: () => t('color.labels.name') }
   ];
@@ -92,6 +94,76 @@
     return { l, c, h };
   }
 
+  function parseOklch(input: string) {
+    const nums = parseNumbers(input, 3);
+    if (!nums) return null;
+    const [l, c, h] = nums;
+    if (l < 0 || l > 1 || c < 0 || h < 0 || h > 360) return null;
+    return { l, c, h };
+  }
+
+  // ── OKLCH ↔ RGB conversion (no external dependency) ──
+  // Reference: https://bottosson.github.io/posts/oklab/
+  function srgbToLinear(c: number): number {
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }
+
+  function linearToSrgb(c: number): number {
+    return c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  }
+
+  function rgbToOklab(r: number, g: number, b: number): { L: number; a: number; b: number } {
+    const lr = srgbToLinear(r / 255);
+    const lg = srgbToLinear(g / 255);
+    const lb = srgbToLinear(b / 255);
+
+    const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
+    const m = 0.2119034982 * lr + 0.6806993517 * lg + 0.1073969578 * lb;
+    const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
+
+    const l_ = Math.cbrt(l);
+    const m_ = Math.cbrt(m);
+    const s_ = Math.cbrt(s);
+
+    return {
+      L: 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_,
+      a: 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_,
+      b: 0.0259040375 * l_ + 0.7827717663 * m_ - 0.808675766 * s_
+    };
+  }
+
+  function oklabToRgb(L: number, a: number, b: number): { r: number; g: number; b: number } {
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.1913699082 * b;
+
+    const l = l_ * l_ * l_;
+    const m = m_ * m_ * m_;
+    const s = s_ * s_ * s_;
+
+    const lr = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    const lg = -1.2684380046 * l + 2.6097572851 * m - 0.3413193965 * s;
+    const lb = -0.0041960863 * l - 0.7034186147 * m + 1.707614781 * s;
+
+    return {
+      r: Math.max(0, Math.min(255, Math.round(linearToSrgb(lr) * 255))),
+      g: Math.max(0, Math.min(255, Math.round(linearToSrgb(lg) * 255))),
+      b: Math.max(0, Math.min(255, Math.round(linearToSrgb(lb) * 255)))
+    };
+  }
+
+  function oklabToOklch(L: number, a: number, b: number): { L: number; C: number; H: number } {
+    const C = Math.sqrt(a * a + b * b);
+    let H = Math.atan2(b, a) * 180 / Math.PI;
+    if (H < 0) H += 360;
+    return { L, C, H };
+  }
+
+  function oklchToOklab(L: number, C: number, H: number): { L: number; a: number; b: number } {
+    const rad = H * Math.PI / 180;
+    return { L, a: C * Math.cos(rad), b: C * Math.sin(rad) };
+  }
+
   function parseCmyk(input: string) {
     const nums = parseNumbers(input, 4);
     if (!nums) return null;
@@ -120,6 +192,8 @@
     const [h, s, l] = convert.rgb.hsl([r, g, b]);
     const [hwbH, whiteness, blackness] = convert.rgb.hwb([r, g, b]);
     const [lVal, cVal, hVal] = convert.rgb.lch([r, g, b]);
+    const oklab = rgbToOklab(r, g, b);
+    const oklch = oklabToOklch(oklab.L, oklab.a, oklab.b);
     const [c, m, y, k] = convert.rgb.cmyk([r, g, b]);
     const keyword = convert.rgb.keyword([r, g, b]);
 
@@ -129,6 +203,7 @@
       hsl: `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`,
       hwb: `hwb(${Math.round(hwbH)} ${toFixed(whiteness)}% ${toFixed(blackness)}%)`,
       lch: `lch(${toFixed(lVal)}% ${toFixed(cVal)} ${toFixed(hVal)})`,
+      oklch: `oklch(${toFixed(oklch.L)} ${toFixed(oklch.C)} ${toFixed(oklch.H)})`,
       cmyk: `device-cmyk(${toFixed(c)}% ${toFixed(m)}% ${toFixed(y)}% ${toFixed(k)}%)`,
       name: keyword ?? t('color.noName')
     };
@@ -176,6 +251,14 @@
           if (!lch) throw new Error(t('color.parseError'));
           const [r, g, b] = convert.lch.rgb([lch.l, lch.c, lch.h]);
           setFromRgb(Math.round(r), Math.round(g), Math.round(b));
+          break;
+        }
+        case 'oklch': {
+          const oklch = parseOklch(value);
+          if (!oklch) throw new Error(t('color.parseError'));
+          const oklab = oklchToOklab(oklch.l, oklch.c, oklch.h);
+          const rgb = oklabToRgb(oklab.L, oklab.a, oklab.b);
+          setFromRgb(rgb.r, rgb.g, rgb.b);
           break;
         }
         case 'cmyk': {

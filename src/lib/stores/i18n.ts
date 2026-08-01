@@ -569,6 +569,7 @@ const translations = {
         hsl: 'hsl',
         hwb: 'hwb',
         lch: 'lch',
+      oklch: 'oklch',
         cmyk: 'cmyk',
         name: 'name'
       },
@@ -3283,6 +3284,7 @@ const translations = {
         hsl: 'hsl',
         hwb: 'hwb',
         lch: 'lch',
+      oklch: 'oklch',
         cmyk: 'cmyk',
         name: '颜色名称'
       },
