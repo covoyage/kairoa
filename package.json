@@ -12,7 +12,7 @@
     "tauri": "tauri",
     "postinstall": "sed -i '' 's/traditional-chinesejss/traditional-chinese.js/g' node_modules/@scure/bip39/package.json 2>/dev/null || sed -i 's/traditional-chinesejss/traditional-chinese.js/g' node_modules/@scure/bip39/package.json 2>/dev/null || true"
   },
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0",
   "dependencies": {
     "@covoyage/file2md": "^1.0.3",
     "@scure/bip39": "^2.0.1",
