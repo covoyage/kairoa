@@ -70,6 +70,60 @@
     }
   }
 
+  function createBrowserDocxConverter(file2md: typeof import('@covoyage/file2md')) {
+    const htmlConverter = new file2md.HtmlConverter();
+    const defaultHeadingStyles = [
+      "p[style-name='Title'] => h1:fresh",
+      "p[style-name='Subtitle'] => h2:fresh",
+      "p[style-name='Heading 1'] => h1:fresh",
+      "p[style-name='Heading 2'] => h2:fresh",
+      "p[style-name='Heading 3'] => h3:fresh",
+      "p[style-name='Heading 4'] => h4:fresh",
+      "p[style-name='heading 1'] => h1:fresh",
+      "p[style-name='heading 2'] => h2:fresh",
+      "p[style-name='heading 3'] => h3:fresh"
+    ];
+
+    return {
+      accepts(_data: Uint8Array, streamInfo: { extension: string | null; mimetype: string | null }) {
+        return streamInfo.extension?.toLowerCase() === '.docx' ||
+          streamInfo.mimetype?.toLowerCase().startsWith(
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ) === true;
+      },
+      async convert(
+        data: Uint8Array,
+        _streamInfo: unknown,
+        options: Record<string, unknown> = {}
+      ) {
+        const mammoth = (await import('mammoth')).default;
+        const processed = await file2md.preProcessDocx(data);
+        const styleMap = [...defaultHeadingStyles];
+
+        if (typeof options.styleMap === 'string') styleMap.push(options.styleMap);
+        if (options.docxIgnoreHeadersFooters === true) {
+          styleMap.push(
+            "p[style-name='Header'] =>",
+            "p[style-name='Footer'] =>",
+            "p[style-name='header'] =>",
+            "p[style-name='footer'] =>"
+          );
+        }
+
+        const result = await mammoth.convertToHtml(
+          { arrayBuffer: processed.slice().buffer },
+          {
+            styleMap,
+            convertImage: options.ignoreImages === true
+              ? mammoth.images.imgElement(async () => ({ src: '' }))
+              : mammoth.images.dataUri
+          }
+        );
+        return htmlConverter.convertString(result.value, options);
+      }
+    };
+  }
+
   async function convert() {
     if (!selectedFile) {
       error = t('fileToMarkdown.errorNoFile');
@@ -92,7 +146,8 @@
 
       const mod = await import('@covoyage/file2md');
       const File2MD = mod.File2MD;
-      const md = new File2MD();
+      const md = new File2MD({ disableConverters: ['DocxConverter'] });
+      md.registerConverter(createBrowserDocxConverter(mod));
       const result = await md.convertStream(data, {
         streamInfo: { extension: '.' + ext, filename: selectedFile.name }
       });
