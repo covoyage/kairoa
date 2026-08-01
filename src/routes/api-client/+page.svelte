@@ -293,6 +293,7 @@
   let highlightedJson = $derived.by(() => {
     const json = activeTab?.bodyJson ?? '';
     if (!json.trim()) return '';
+    if (json.length > 100000) return json;
     try {
       return hljs.highlight(json, { language: 'json' }).value;
     } catch {
@@ -303,6 +304,7 @@
   let highlightedXml = $derived.by(() => {
     const xml = activeTab?.bodyXml ?? '';
     if (!xml.trim()) return '';
+    if (xml.length > 100000) return xml;
     try {
       return hljs.highlight(xml, { language: 'xml' }).value;
     } catch {
@@ -1693,6 +1695,7 @@
                   bind:value={activeTab.bodyJson}
                   placeholder={t('apiClient.jsonPlaceholder')}
                   class="json-editor-textarea textarea font-mono text-sm min-h-[150px]"
+                  wrap={"off" as any}
                   style="ime-mode: disabled;"
                   inputmode="text"
                   autocomplete="off"
@@ -1729,6 +1732,7 @@
                   bind:value={activeTab.bodyXml}
                   placeholder={t('apiClient.xmlPlaceholder')}
                   class="json-editor-textarea textarea font-mono text-sm min-h-[150px]"
+                  wrap={"off" as any}
                   style="ime-mode: disabled;"
                   inputmode="text"
                   autocomplete="off"

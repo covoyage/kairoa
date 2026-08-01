@@ -215,9 +215,8 @@
     margin: 0;
     border: 1px solid transparent;
     border-radius: 0.5rem;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    white-space: pre;
+    overflow: auto;
     tab-size: 2;
     -moz-tab-size: 2;
   }
@@ -287,6 +286,57 @@
   .dark .json-editor-overlay .hljs-meta { color: #b392f0; }
   .dark .json-editor-overlay .hljs-doctype { color: #b392f0; }
   .dark .json-editor-overlay .hljs-cdata { color: #79b8ff; }
+
+  /* Line numbers gutter for code editors */
+  .code-editor-with-gutter {
+    display: flex;
+    border: 1px solid rgb(209, 213, 219);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: white;
+  }
+  .dark .code-editor-with-gutter {
+    border-color: rgb(75, 85, 99);
+    background: rgb(31, 41, 55);
+  }
+
+  .line-numbers-gutter {
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+    text-align: right;
+    background: rgb(249, 250, 251);
+    color: rgb(156, 163, 175);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    user-select: none;
+    overflow: hidden;
+    min-width: 3rem;
+    border-right: 1px solid rgb(229, 231, 235);
+  }
+  .dark .line-numbers-gutter {
+    background: rgb(17, 24, 39);
+    color: rgb(107, 114, 128);
+    border-right-color: rgb(55, 65, 81);
+  }
+
+  .line-number {
+    height: 1.5rem;
+    line-height: 1.5rem;
+  }
+
+  .code-editor-content {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+  }
+
+  .code-editor-content .json-editor-overlay,
+  .code-editor-content .json-editor-textarea {
+    border: none !important;
+    border-radius: 0 !important;
+    padding-left: 0.75rem;
+  }
 
   .markdown-content {
     @apply text-gray-900 dark:text-gray-100;
