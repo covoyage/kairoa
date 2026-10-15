@@ -1,6 +1,6 @@
 <script lang="ts">
   import { translationsStore } from '$lib/stores/i18n';
-  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, ChevronRight, Code, Braces, FolderPlus, Folder, MoreVertical, Pencil, ArrowRight, Inbox, Search, Copy as CopyIcon, Clock, Key, GripVertical, Eye, FileCode } from 'lucide-svelte';
+  import { Copy, Check, Send, Trash2, Plus, X, Download, Upload, ChevronDown, ChevronRight, Code, Braces, FolderPlus, Folder, MoreVertical, Pencil, ArrowRight, Inbox, Search, Copy as CopyIcon, Clock, Key, GripVertical, Eye, FileCode, ExternalLink } from 'lucide-svelte';
   import { browser } from '$app/environment';
   import hljs from 'highlight.js';
   
@@ -41,6 +41,8 @@
     file: File | null;
   }
 
+  type RequestView = 'headers' | 'body' | 'auth' | 'settings' | 'preRequest' | 'tests' | 'params';
+
   interface TabData {
     id: string;
     name: string;
@@ -57,28 +59,41 @@
     responseHeaders: Record<string, string>;
     responseBody: string;
     responseTime: number | null;
+    responseSize: number | null;
     error: string;
     copied: boolean;
     collectionId: string | null;
     order: number;
+    authType: AuthType;
+    bearerToken: string;
+    basicUsername: string;
+    basicPassword: string;
+    preRequestScript: string;
+    testScript: string;
+    testResults: { name: string; passed: boolean; error?: string }[];
+    requestView: RequestView;
+    cancelled: boolean;
+  }
+
+  function defaultTabFields(): Pick<TabData, 'authType' | 'bearerToken' | 'basicUsername' | 'basicPassword' | 'preRequestScript' | 'testScript' | 'testResults' | 'requestView' | 'responseSize' | 'cancelled'> {
+    return {
+      authType: 'none',
+      bearerToken: '',
+      basicUsername: '',
+      basicPassword: '',
+      preRequestScript: '',
+      testScript: '',
+      testResults: [],
+      requestView: 'headers',
+      responseSize: null,
+      cancelled: false
+    };
   }
 
   interface Collection {
     id: string;
     name: string;
     collapsed: boolean;
-  }
-
-  interface EnvVariable {
-    key: string;
-    value: string;
-    enabled: boolean;
-  }
-
-  interface Environment {
-    id: string;
-    name: string;
-    variables: EnvVariable[];
   }
 
   interface HistoryEntry {
@@ -89,6 +104,21 @@
     status: number | null;
     time: number | null;
     timestamp: number;
+    snapshot?: {
+      method: HttpMethod;
+      url: string;
+      headers: Header[];
+      bodyType: BodyType;
+      bodyJson: string;
+      bodyText: string;
+      bodyXml: string;
+      formData: { key: string; value: string; enabled: boolean; type: 'text' | 'file' }[];
+      authType: AuthType;
+      bearerToken: string;
+      basicUsername: string;
+      basicPassword: string;
+      collectionId: string | null;
+    };
   }
 
   type AuthType = 'none' | 'bearer' | 'basic';
@@ -113,7 +143,8 @@
       error: '',
       copied: false,
       collectionId: null,
-      order: 0
+      order: 0,
+      ...defaultTabFields()
     }
   ]);
 
@@ -182,7 +213,8 @@
       error: '',
       copied: false,
       collectionId,
-      order: tabs.length
+      order: tabs.length,
+      ...defaultTabFields()
     };
     tabs = [...tabs, newTab];
     activeTabId = newTab.id;
@@ -190,6 +222,11 @@
       const col = collections.find(c => c.id === collectionId);
       if (col) col.collapsed = false;
     }
+    // 新请求：聚焦 URL 输入框并全选，方便直接输入
+    requestAnimationFrame(() => {
+      urlInputRef?.focus();
+      urlInputRef?.select();
+    });
   }
 
   // 删除标签页
@@ -202,13 +239,23 @@
   }
 
   // ── Collection management ──
+  function nextCollectionName(): string {
+    const base = t('apiClient.newCollection');
+    if (!collections.some(c => c.name === base)) return base;
+    let n = 2;
+    while (collections.some(c => c.name === `${base} ${n}`)) n++;
+    return `${base} ${n}`;
+  }
+
   function addCollection() {
     const newCol: Collection = {
       id: crypto.randomUUID(),
-      name: t('apiClient.newCollection'),
+      name: nextCollectionName(),
       collapsed: false
     };
     collections = [...collections, newCol];
+    editingCollectionId = newCol.id;
+    editingCollectionName = newCol.name;
   }
 
   function renameCollection(colId: string, name: string) {
@@ -217,10 +264,55 @@
   }
 
   function deleteCollection(colId: string) {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const count = tabs.filter(tab => tab.collectionId === colId).length;
+    const msg = t('apiClient.deleteCollectionConfirm')
+      .replace('{name}', col.name ?? '')
+      .replace('{count}', String(count));
+    if (!confirm(msg)) return;
     tabs.forEach(tab => {
       if (tab.collectionId === colId) tab.collectionId = null;
     });
     collections = collections.filter(c => c.id !== colId);
+    if (editingCollectionId === colId) {
+      editingCollectionId = null;
+      editingCollectionName = '';
+    }
+  }
+
+  function duplicateCollection(colId: string) {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const newColId = crypto.randomUUID();
+    let baseName = `${col.name} (copy)`;
+    let newName = baseName;
+    let n = 2;
+    while (collections.some(c => c.name === newName)) {
+      newName = `${baseName} ${n++}`;
+    }
+    collections = [...collections, { id: newColId, name: newName, collapsed: false }];
+    const copies = tabs
+      .filter(tab => tab.collectionId === colId)
+      .map(tab => ({
+        ...tab,
+        id: crypto.randomUUID(),
+        collectionId: newColId,
+        isSending: false,
+        responseStatus: null,
+        responseHeaders: {},
+        responseBody: '',
+        responseTime: null,
+        responseSize: null,
+        error: '',
+        copied: false,
+        cancelled: false,
+        testResults: [],
+        headers: tab.headers.map(h => ({ ...h })),
+        formData: (tab.formData || []).map(item => ({ ...item, file: null })),
+        order: tabs.length
+      }));
+    if (copies.length > 0) tabs = [...tabs, ...copies];
   }
 
   function toggleCollapse(colId: string) {
@@ -238,6 +330,9 @@
   }
 
   let ungroupedTabs = $derived(tabs.filter(t => t.collectionId === null));
+
+  // ── Search ──
+  let searchText = $state('');
 
   let filteredUngroupedTabs = $derived(
     searchText.trim()
@@ -274,6 +369,13 @@
     }
     editingCollectionId = null;
     editingCollectionName = '';
+  }
+
+  function focusAndSelect(node: HTMLInputElement) {
+    requestAnimationFrame(() => {
+      node.focus();
+      node.select();
+    });
   }
 
   function addHeader(tab: TabData) {
@@ -315,8 +417,19 @@
   let curlCopied = $state(false);
   let headersCopied = $state(false);
   let showDropdown = $state(false);
+  const STORAGE_SIDEBAR_WIDTH_KEY = 'apiClient.sidebarWidth.v1';
   let sidebarWidth = $state(256);
   let isResizing = $state(false);
+
+  if (browser) {
+    try {
+      const savedWidth = localStorage.getItem(STORAGE_SIDEBAR_WIDTH_KEY);
+      if (savedWidth) {
+        const w = parseInt(savedWidth, 10);
+        if (!isNaN(w)) sidebarWidth = Math.max(180, Math.min(500, w));
+      }
+    } catch {}
+  }
 
   function startResize(e: MouseEvent) {
     e.preventDefault();
@@ -336,6 +449,9 @@
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      try {
+        if (browser) localStorage.setItem(STORAGE_SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+      } catch {}
     };
 
     document.body.style.cursor = 'col-resize';
@@ -343,9 +459,6 @@
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
   }
-
-  // ── Search ──
-  let searchText = $state('');
 
   // ── Duplicate ──
   function duplicateTab(tabId: string) {
@@ -360,8 +473,11 @@
       responseHeaders: {},
       responseBody: '',
       responseTime: null,
+      responseSize: null,
       error: '',
       copied: false,
+      cancelled: false,
+      testResults: [],
       headers: tab.headers.map(h => ({ ...h })),
       formData: (tab.formData || []).map(item => ({ ...item, file: null })),
       order: tabs.length
@@ -410,73 +526,88 @@
     draggedTabId = null;
   }
 
-  // ── Environment variables ──
-  let environments = $state<Environment[]>([]);
-  let activeEnvId = $state<string | null>(null);
-  let showEnvDialog = $state(false);
-  let showEnvMenu = $state(false);
+  // ── Query params (synced with URL ?k=v) ──
+  interface QueryParam { key: string; value: string; enabled: boolean; }
   let showSidebarMenu = $state(false);
 
-  const STORAGE_ENVIRONMENTS_KEY = 'apiClient.environments.v1';
-  const STORAGE_ACTIVE_ENV_KEY = 'apiClient.activeEnvId.v1';
-
-  function loadEnvironments() {
-    if (!browser) return;
+  function getQueryParams(url: string): QueryParam[] {
     try {
-      const saved = localStorage.getItem(STORAGE_ENVIRONMENTS_KEY);
-      const savedActive = localStorage.getItem(STORAGE_ACTIVE_ENV_KEY);
-      if (saved) environments = JSON.parse(saved);
-      if (savedActive) activeEnvId = savedActive;
-    } catch {}
-  }
-
-  function saveEnvironments() {
-    if (!browser) return;
-    localStorage.setItem(STORAGE_ENVIRONMENTS_KEY, JSON.stringify(environments));
-    localStorage.setItem(STORAGE_ACTIVE_ENV_KEY, activeEnvId || '');
-  }
-
-  loadEnvironments();
-
-  $effect(() => {
-    environments;
-    activeEnvId;
-    saveEnvironments();
-  });
-
-  let activeEnvironment = $derived(environments.find(e => e.id === activeEnvId));
-
-  function resolveVariables(text: string): string {
-    if (!activeEnvironment) return text;
-    let resolved = text;
-    for (const v of activeEnvironment.variables) {
-      if (v.enabled && v.key.trim()) {
-        resolved = resolved.replaceAll(`{{${v.key.trim()}}}`, v.value);
-      }
+      const qIndex = url.indexOf('?');
+      if (qIndex < 0) return [];
+      const hashSplit = url.slice(qIndex + 1).split('#')[0];
+      if (!hashSplit) return [];
+      return hashSplit.split('&').filter(Boolean).map(pair => {
+        const eq = pair.indexOf('=');
+        const rawK = eq < 0 ? pair : pair.slice(0, eq);
+        const rawV = eq < 0 ? '' : pair.slice(eq + 1);
+        let key = rawK, value = rawV, enabled = true;
+        if (key.startsWith('!')) { enabled = false; key = key.slice(1); }
+        try { key = decodeURIComponent(key.replace(/\+/g, ' ')); } catch {}
+        try { value = decodeURIComponent(value.replace(/\+/g, ' ')); } catch {}
+        if (/^\{\{.*\}\}$/.test(key.trim()) || /^\{\{.*\}\}$/.test(value.trim())) {
+          return { key, value, enabled };
+        }
+        return { key, value, enabled };
+      });
+    } catch {
+      return [];
     }
-    return resolved;
   }
 
-  function addEnvironment() {
-    const newEnv: Environment = { id: crypto.randomUUID(), name: 'New Environment', variables: [] };
-    environments = [...environments, newEnv];
-    activeEnvId = newEnv.id;
+  function setQueryParams(url: string, params: QueryParam[]): string {
+    const qIndex = url.indexOf('?');
+    const base = qIndex < 0 ? url.split('#')[0] : url.slice(0, qIndex);
+    const hash = url.includes('#') ? url.slice(url.indexOf('#')) : '';
+    const parts: string[] = [];
+    for (const p of params) {
+      if (!p.enabled) continue;
+      if (!p.key.trim() && !p.value.trim()) continue;
+      const k = /^\{\{.*\}\}$/.test(p.key.trim()) ? p.key.trim() : encodeURIComponent(p.key.trim());
+      const v = /^\{\{.*\}\}$/.test(p.value.trim()) ? p.value.trim() : encodeURIComponent(p.value.trim());
+      parts.push(`${k}=${v}`);
+    }
+    const disabled = params.filter(p => !p.enabled && (p.key.trim() || p.value.trim()));
+    for (const p of disabled) {
+      parts.push(`!${encodeURIComponent(p.key.trim())}=${encodeURIComponent(p.value.trim())}`);
+    }
+    return parts.length > 0 ? `${base}?${parts.join('&')}${hash}` : `${base}${hash}`;
   }
 
-  function deleteEnvironment(envId: string) {
-    environments = environments.filter(e => e.id !== envId);
-    if (activeEnvId === envId) activeEnvId = null;
+  let queryParams = $derived(getQueryParams(activeTab?.url ?? ''));
+
+  function updateQueryParam(index: number, field: 'key' | 'value' | 'enabled', val: string | boolean) {
+    if (!activeTab) return;
+    const params = getQueryParams(activeTab.url);
+    while (params.length <= index) params.push({ key: '', value: '', enabled: true });
+    (params[index] as any)[field] = val;
+    activeTab.url = setQueryParams(activeTab.url, params);
   }
 
-  function addEnvVariable(envId: string) {
-    const env = environments.find(e => e.id === envId);
-    if (env) env.variables = [...env.variables, { key: '', value: '', enabled: true }];
+  function addQueryParam() {
+    if (!activeTab) return;
+    const params = getQueryParams(activeTab.url);
+    params.push({ key: '', value: '', enabled: true });
+    activeTab.url = setQueryParams(activeTab.url, params);
   }
 
-  function removeEnvVariable(envId: string, index: number) {
-    const env = environments.find(e => e.id === envId);
-    if (env) env.variables = env.variables.filter((_, i) => i !== index);
+  function removeQueryParam(index: number) {
+    if (!activeTab) return;
+    const params = getQueryParams(activeTab.url);
+    params.splice(index, 1);
+    activeTab.url = setQueryParams(activeTab.url, params);
   }
+
+  // ── JSON inline validation ──
+  let jsonInlineError = $derived.by(() => {
+    const tab = activeTab;
+    if (!tab || tab.bodyType !== 'json' || !tab.bodyJson.trim()) return '';
+    try {
+      JSON.parse(tab.bodyJson);
+      return '';
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    }
+  });
 
   // ── History ──
   let history = $state<HistoryEntry[]>([]);
@@ -507,10 +638,58 @@
       url: tab.url,
       status: tab.responseStatus,
       time: tab.responseTime,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      snapshot: {
+        method: tab.method,
+        url: tab.url,
+        headers: tab.headers.map(h => ({ ...h })),
+        bodyType: tab.bodyType,
+        bodyJson: tab.bodyJson,
+        bodyText: tab.bodyText,
+        bodyXml: tab.bodyXml,
+        formData: (tab.formData || []).map(({ key, value, enabled, type }) => ({ key, value, enabled, type })),
+        authType: tab.authType,
+        bearerToken: tab.bearerToken,
+        basicUsername: tab.basicUsername,
+        basicPassword: tab.basicPassword,
+        collectionId: tab.collectionId
+      }
     };
     history = [entry, ...history].slice(0, MAX_HISTORY);
     saveHistory();
+  }
+
+  function restoreHistoryEntry(entry: HistoryEntry) {
+    const snap = entry.snapshot;
+    if (!snap) {
+      addTab(null);
+      if (activeTab) {
+        activeTab.method = entry.method;
+        activeTab.url = entry.url;
+      }
+      showHistory = false;
+      return;
+    }
+    addTab(snap.collectionId && collections.some(c => c.id === snap.collectionId) ? snap.collectionId : null);
+    const tab = activeTab;
+    if (tab) {
+      tab.method = snap.method;
+      tab.url = snap.url;
+      tab.headers = snap.headers.length > 0 ? snap.headers : [{ key: '', value: '', enabled: true }];
+      tab.bodyType = snap.bodyType;
+      tab.bodyJson = snap.bodyJson;
+      tab.bodyText = snap.bodyText;
+      tab.bodyXml = snap.bodyXml;
+      tab.formData = snap.formData.length > 0 ? snap.formData.map(item => ({ ...item, file: null })) : [{ key: '', value: '', enabled: true, type: 'text' as const, file: null }];
+      tab.authType = snap.authType;
+      tab.bearerToken = snap.bearerToken;
+      tab.basicUsername = snap.basicUsername;
+      tab.basicPassword = snap.basicPassword;
+      tab.requestView = 'headers';
+      tab.testResults = [];
+      updateTabName(tab);
+    }
+    showHistory = false;
   }
 
   function clearHistory() {
@@ -518,18 +697,15 @@
     saveHistory();
   }
 
-  // ── Auth ──
-  let authType = $state<AuthType>('none');
-  let bearerToken = $state('');
-  let basicUsername = $state('');
-  let basicPassword = $state('');
-
-  function getAuthHeaders(): Record<string, string> {
+  // ── Auth (per-tab, stored on TabData) ──
+  function getAuthHeaders(tab?: TabData): Record<string, string> {
+    const t = tab ?? activeTab;
+    if (!t) return {};
     const headers: Record<string, string> = {};
-    if (authType === 'bearer' && bearerToken.trim()) {
-      headers['Authorization'] = `Bearer ${bearerToken.trim()}`;
-    } else if (authType === 'basic' && basicUsername.trim()) {
-      headers['Authorization'] = `Basic ${btoa(`${basicUsername}:${basicPassword}`)}`;
+    if (t.authType === 'bearer' && t.bearerToken.trim()) {
+      headers['Authorization'] = `Bearer ${t.bearerToken.trim()}`;
+    } else if (t.authType === 'basic' && t.basicUsername.trim()) {
+      headers['Authorization'] = `Basic ${btoa(`${t.basicUsername}:${t.basicPassword}`)}`;
     }
     return headers;
   }
@@ -538,10 +714,7 @@
   let requestTimeout = $state(0);
   let followRedirects = $state(true);
 
-  // ── Pre-request Script & Tests ──
-  let preRequestScript = $state('');
-  let testScript = $state('');
-  let testResults = $state<{ name: string; passed: boolean; error?: string }[]>([]);
+  // ── Pre-request Script & Tests (per-tab, stored on TabData) ──
 
   // Build Postman-compatible `pm` object
   function buildPm(envVars: Record<string, string>, scriptVars: Record<string, string>, response?: { status: number; body: string; headers: Record<string, string>; time: number }, results?: { name: string; passed: boolean; error?: string }[]) {
@@ -590,20 +763,6 @@
             be: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).to.be(${expected})`),
             include: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().to.include("${expected}")`),
             match: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().to.match(${regex})`),
-          },
-          toEqual: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).toEqual(${JSON.stringify(expected)}`),
-          toBe: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).toBe(${expected})`),
-          toEqual1: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect.toEqual`),
-          toBeGreaterThan: (expected: number) => makeResult((actual as number) > expected, `expect(${actual}).toBeGreaterThan(${expected})`),
-          toBeLessThan: (expected: number) => makeResult((actual as number) < expected, `expect(${actual}).toBeLessThan(${expected})`),
-          toContain: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().toContain("${expected}")`),
-          toMatch: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().toMatch(${regex})`),
-          to: {
-            equal: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.equal(${JSON.stringify(expected)}`),
-            eql: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).to.eql(${JSON.stringify(expected)}`),
-            be: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).to.be(${expected})`),
-            include: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().to.include("${expected}")`),
-            match: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().to.match(${regex})`),
             have: {
               property: (key: string) => {
                 const ok = actual != null && typeof actual === 'object' && key in (actual as Record<string, unknown>);
@@ -612,27 +771,32 @@
               status: (expected: number) => makeResult((actual as any)?.code === expected || (actual as any)?.status === expected, `expect().to.have.status(${expected})`),
             },
           },
+          toEqual: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect(${JSON.stringify(actual)}).toEqual(${JSON.stringify(expected)}`),
+          toBe: (expected: unknown) => makeResult(actual === expected, `expect(${actual}).toBe(${expected})`),
+          toEqual1: (expected: unknown) => makeResult(JSON.stringify(actual) === JSON.stringify(expected), `expect.toEqual`),
+          toBeGreaterThan: (expected: number) => makeResult((actual as number) > expected, `expect(${actual}).toBeGreaterThan(${expected})`),
+          toBeLessThan: (expected: number) => makeResult((actual as number) < expected, `expect(${actual}).toBeLessThan(${expected})`),
+          toContain: (expected: string) => makeResult(typeof actual === 'string' && actual.includes(expected), `expect().toContain("${expected}")`),
+          toMatch: (regex: RegExp) => makeResult(typeof actual === 'string' && regex.test(actual), `expect().toMatch(${regex})`),
         };
       },
     };
     return pm;
   }
 
-  function runPreRequestScript(): Record<string, string> {
+  function runPreRequestScript(tab?: TabData): Record<string, string> {
     const scriptVars: Record<string, string> = {};
-    if (!preRequestScript.trim()) return scriptVars;
+    const script = (tab ?? activeTab)?.preRequestScript ?? '';
+    if (!script.trim()) return scriptVars;
 
     try {
+      // No persistent environments: pm.environment works as an ephemeral
+      // in-memory store for the duration of this script run.
       const envVars: Record<string, string> = {};
-      if (activeEnvironment) {
-        for (const v of activeEnvironment.variables) {
-          if (v.enabled && v.key.trim()) envVars[v.key.trim()] = v.value;
-        }
-      }
 
       const pm = buildPm(envVars, scriptVars);
       const fn = new Function('pm', `
-        try { ${preRequestScript} } catch(e) { throw e; }
+        try { ${script} } catch(e) { throw e; }
       `);
       fn(pm);
     } catch (e) {
@@ -642,16 +806,12 @@
   }
 
   function runTestScript(tab: TabData) {
-    testResults = [];
-    if (!testScript.trim()) return;
+    tab.testResults = [];
+    const script = tab.testScript ?? '';
+    if (!script.trim()) return;
 
     try {
       const envVars: Record<string, string> = {};
-      if (activeEnvironment) {
-        for (const v of activeEnvironment.variables) {
-          if (v.enabled && v.key.trim()) envVars[v.key.trim()] = v.value;
-        }
-      }
 
       const scriptVars: Record<string, string> = {};
       const results: { name: string; passed: boolean; error?: string }[] = [];
@@ -663,25 +823,46 @@
       };
 
       const pm = buildPm(envVars, scriptVars, response, results);
+      const script = tab.testScript ?? '';
       const fn = new Function('pm', `
-        try { ${testScript} } catch(e) { results.push({ name: 'Script Error', passed: false, error: e.message }); }
+        try { ${script} } catch(e) { results.push({ name: 'Script Error', passed: false, error: e.message }); }
       `);
       // Pass results as closure variable
       (fn as Function)(pm, results);
-      testResults = results;
+      tab.testResults = results;
     } catch (e) {
-      testResults = [{ name: 'Script Error', passed: false, error: e instanceof Error ? e.message : String(e) }];
+      tab.testResults = [{ name: 'Script Error', passed: false, error: e instanceof Error ? e.message : String(e) }];
     }
   }
 
-  let requestView = $state<'headers' | 'body' | 'auth' | 'settings' | 'preRequest' | 'tests'>('headers');
   let showResponseDialog = $state(false);
+  let responsePopped = $state(false);
   let bodyTextareaRef = $state<HTMLTextAreaElement | null>(null);
   let jsonOverlayRef = $state<HTMLElement | null>(null);
   let xmlOverlayRef = $state<HTMLElement | null>(null);
   let responseOverlayRef = $state<HTMLElement | null>(null);
   let responseTextareaRef = $state<HTMLTextAreaElement | null>(null);
-  let responseViewMode = $state<'pretty' | 'raw' | 'preview'>('pretty');
+  let inlineResponseOverlayRef = $state<HTMLElement | null>(null);
+  let inlineResponseTextareaRef = $state<HTMLTextAreaElement | null>(null);
+
+  function syncInlineResponseScroll() {
+    if (inlineResponseOverlayRef && inlineResponseTextareaRef) {
+      inlineResponseOverlayRef.scrollTop = inlineResponseTextareaRef.scrollTop;
+      inlineResponseOverlayRef.scrollLeft = inlineResponseTextareaRef.scrollLeft;
+    }
+  }
+  let responseViewMode = $state<'pretty' | 'raw' | 'preview' | 'headers'>('pretty');
+  let abortController = $state<AbortController | null>(null);
+  let jsonError = $state('');
+
+  function cancelRequest(tab: TabData) {
+    tab.cancelled = true;
+    try {
+      abortController?.abort();
+    } catch {}
+    tab.isSending = false;
+    if (!tab.error) tab.error = t('apiClient.cancelled') !== 'apiClient.cancelled' ? t('apiClient.cancelled') : 'Request cancelled';
+  }
 
   let highlightedResponse = $derived.by(() => {
     const body = activeTab?.responseBody ?? '';
@@ -739,8 +920,20 @@
 
       if (savedTabs) {
         const parsed = JSON.parse(savedTabs) as TabData[];
+        const tabDefaults = defaultTabFields();
         tabs = parsed.map((tab) => ({
+          ...tabDefaults,
           ...tab,
+          authType: tab.authType ?? tabDefaults.authType,
+          bearerToken: tab.bearerToken ?? '',
+          basicUsername: tab.basicUsername ?? '',
+          basicPassword: tab.basicPassword ?? '',
+          preRequestScript: tab.preRequestScript ?? '',
+          testScript: tab.testScript ?? '',
+          testResults: tab.testResults ?? [],
+          requestView: tab.requestView ?? tabDefaults.requestView,
+          responseSize: tab.responseSize ?? null,
+          cancelled: false,
           formData: (tab.formData || []).map((item) => ({
             ...item,
             file: null
@@ -816,22 +1009,24 @@
   });
 
   let highlightedPreRequest = $derived.by(() => {
-    if (!preRequestScript.trim()) return '';
-    if (preRequestScript.length > 100000) return preRequestScript;
+    const script = activeTab?.preRequestScript ?? '';
+    if (!script.trim()) return '';
+    if (script.length > 100000) return script;
     try {
-      return hljs.highlight(preRequestScript, { language: 'javascript' }).value;
+      return hljs.highlight(script, { language: 'javascript' }).value;
     } catch {
-      return preRequestScript;
+      return script;
     }
   });
 
   let highlightedTestScript = $derived.by(() => {
-    if (!testScript.trim()) return '';
-    if (testScript.length > 100000) return testScript;
+    const script = activeTab?.testScript ?? '';
+    if (!script.trim()) return '';
+    if (script.length > 100000) return script;
     try {
-      return hljs.highlight(testScript, { language: 'javascript' }).value;
+      return hljs.highlight(script, { language: 'javascript' }).value;
     } catch {
-      return testScript;
+      return script;
     }
   });
 
@@ -1019,26 +1214,29 @@
     tab.responseHeaders = {};
     tab.responseBody = '';
     tab.responseTime = null;
+    tab.responseSize = null;
+    tab.cancelled = false;
 
     const startTime = Date.now();
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
       // 执行 Pre-request Script
-      const scriptVars = runPreRequestScript();
+      const scriptVars = runPreRequestScript(tab);
 
-      // 解析环境变量 + 脚本变量
-      const resolvedUrl = resolveVariables(tab.url).replaceAll(/\{\{(\w+)\}\}/g, (_, key) => scriptVars[key] ?? `{{${key}}}`);
+      // 解析脚本变量（pm.variables.set），无环境变量机制
+      const applyScriptVars = (text: string) => text.replaceAll(/\{\{(\w+)\}\}/g, (_, key) => scriptVars[key] ?? `{{${key}}}`);
+      const resolvedUrl = applyScriptVars(tab.url);
 
       // 构建请求头
       const requestHeaders: Record<string, string> = {};
       // 添加 Auth headers
-      const authHeaders = getAuthHeaders();
+      const authHeaders = getAuthHeaders(tab);
       Object.assign(requestHeaders, authHeaders);
 
       tab.headers.forEach((header) => {
         if (header.enabled && header.key.trim() && header.value.trim()) {
-          requestHeaders[resolveVariables(header.key.trim())] = resolveVariables(header.value.trim());
+          requestHeaders[applyScriptVars(header.key.trim())] = applyScriptVars(header.value.trim());
         }
       });
 
@@ -1222,13 +1420,16 @@
         const endTime = Date.now();
         tab.responseTime = endTime - startTime;
 
-        if (response.error) {
+        // 已取消：丢弃回包，不写 response
+        if (tab.cancelled) {
+          // discard
+        } else if (response.error) {
           tab.error = response.error;
           tab.responseStatus = null;
         } else {
           tab.responseStatus = response.status;
           tab.responseHeaders = response.headers;
-          
+
           // 尝试格式化 JSON 响应
           if (response.body.trim()) {
             try {
@@ -1240,26 +1441,28 @@
           } else {
             tab.responseBody = response.body;
           }
+          tab.responseSize = new TextEncoder().encode(tab.responseBody).length;
 
           // 更新标签页名称
           updateTabName(tab);
-          
-          // 显示响应对话框
-          showResponseDialog = true;
         }
       } else {
         // 回退到使用 fetch（可能在浏览器中运行或 Tauri API 不可用）
+        abortController = new AbortController();
         const requestOptions: RequestInit = {
           method: tab.method,
           headers: requestHeaders,
           redirect: followRedirects ? 'follow' : 'manual',
+          signal: abortController.signal,
         };
 
         // Timeout
         if (requestTimeout > 0) {
-          const controller = new AbortController();
-          requestOptions.signal = controller.signal;
-          timeoutId = setTimeout(() => controller.abort(), requestTimeout * 1000);
+          timeoutId = setTimeout(() => {
+            try {
+              abortController?.abort();
+            } catch {}
+          }, requestTimeout * 1000);
         }
 
         if (requestBody !== undefined) {
@@ -1275,42 +1478,47 @@
         const endTime = Date.now();
         tab.responseTime = endTime - startTime;
 
-        // 获取响应状态
-        tab.responseStatus = response.status;
+        // 已取消：丢弃回包，不写 response
+        if (!tab.cancelled) {
+          // 获取响应状态
+          tab.responseStatus = response.status;
 
-        // 获取响应头
-        response.headers.forEach((value, key) => {
-          tab.responseHeaders[key] = value;
-        });
+          // 获取响应头
+          response.headers.forEach((value, key) => {
+            tab.responseHeaders[key] = value;
+          });
 
-        // 获取响应体
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          try {
-            const json = await response.json();
-            tab.responseBody = JSON.stringify(json, null, 2);
-          } catch (e) {
+          // 获取响应体
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            try {
+              const json = await response.json();
+              tab.responseBody = JSON.stringify(json, null, 2);
+            } catch (e) {
+              tab.responseBody = await response.text();
+            }
+          } else {
             tab.responseBody = await response.text();
           }
-        } else {
-          tab.responseBody = await response.text();
-        }
+          tab.responseSize = new TextEncoder().encode(tab.responseBody).length;
 
-        // 更新标签页名称
-        updateTabName(tab);
-        
-        // 显示响应对话框
-        showResponseDialog = true;
+          // 更新标签页名称
+          updateTabName(tab);
+        }
       }
     } catch (err) {
-      tab.error = err instanceof Error ? err.message : t('apiClient.requestFailed');
       tab.responseTime = Date.now() - startTime;
-      showResponseDialog = true;
-      } finally {
+      if (!tab.cancelled) {
+        tab.error = err instanceof Error ? err.message : t('apiClient.requestFailed');
+      }
+    } finally {
         tab.isSending = false;
+        abortController = null;
         if (timeoutId) clearTimeout(timeoutId);
         addHistoryEntry(tab);
-        runTestScript(tab);
+        if (!tab.cancelled) {
+          runTestScript(tab);
+        }
       }
   }
 
@@ -1329,7 +1537,33 @@
     }
   }
 
+  function formatSize(bytes: number | null): string {
+    if (bytes === null || bytes === undefined) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+  }
+
+  function saveResponse(tab: TabData) {
+    if (!tab.responseBody) return;
+    const ct = tab.responseHeaders['content-type'] ?? tab.responseHeaders['Content-Type'] ?? '';
+    const ext = ct.includes('json') ? 'json' : 'txt';
+    browserDownload(tab.responseBody, `response-${tab.responseStatus ?? 'none'}-${Date.now()}.${ext}`);
+  }
+
+  // 快捷键：Cmd/Ctrl + Enter 发送当前请求
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      if (activeTab && !activeTab.isSending) {
+        e.preventDefault();
+        sendRequest(activeTab);
+      }
+    }
+  }
+
   function clear(tab: TabData) {
+    const keepView = tab.requestView;
+    const defaults = defaultTabFields();
     tab.url = '';
     tab.headers = [{ key: '', value: '', enabled: true }];
     tab.bodyType = 'none';
@@ -1341,7 +1575,17 @@
     tab.responseHeaders = {};
     tab.responseBody = '';
     tab.responseTime = null;
+    tab.responseSize = null;
+    tab.cancelled = false;
     tab.error = '';
+    tab.authType = defaults.authType;
+    tab.bearerToken = '';
+    tab.basicUsername = '';
+    tab.basicPassword = '';
+    tab.preRequestScript = '';
+    tab.testScript = '';
+    tab.testResults = [];
+    tab.requestView = keepView;
     tab.name = 'New Request';
   }
 
@@ -1829,7 +2073,14 @@
       bodyText: tab.bodyText,
       bodyXml: tab.bodyXml,
       formData: (tab.formData || []).map(({ key, value, enabled, type }) => ({ key, value, enabled, type })),
-      collectionId: tab.collectionId
+      collectionId: tab.collectionId,
+      authType: tab.authType,
+      bearerToken: tab.bearerToken,
+      basicUsername: tab.basicUsername,
+      basicPassword: tab.basicPassword,
+      preRequestScript: tab.preRequestScript,
+      testScript: tab.testScript,
+      requestView: tab.requestView
     };
   }
 
@@ -1913,7 +2164,10 @@
       }
 
       // Import requests
+      const knownColIds = new Set(collections.map(c => c.id));
       for (const req of data.requests) {
+        const rawColId = req.collectionId || null;
+        const safeColId = rawColId && knownColIds.has(rawColId) ? rawColId : null;
         const newTab: TabData = {
           id: crypto.randomUUID(),
           name: req.name || 'Imported',
@@ -1932,7 +2186,16 @@
           responseTime: null,
           error: '',
           copied: false,
-          collectionId: req.collectionId || null
+          collectionId: safeColId,
+          order: tabs.length,
+          ...defaultTabFields(),
+          authType: req.authType || 'none',
+          bearerToken: req.bearerToken || '',
+          basicUsername: req.basicUsername || '',
+          basicPassword: req.basicPassword || '',
+          preRequestScript: req.preRequestScript || '',
+          testScript: req.testScript || '',
+          requestView: req.requestView || 'headers'
         };
         tabs = [...tabs, newTab];
       }
@@ -1964,31 +2227,7 @@
     return '';
   }
 
-  // 监听方法变化，自动调整 body 类型
-  $effect(() => {
-    const currentTab = tabs.find(tab => tab.id === activeTabId);
-    if (!currentTab) return;
-    
-    const method = currentTab.method;
-    if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
-      if (currentTab.bodyType !== 'none') {
-        currentTab.bodyType = 'none';
-      }
-      // 如果当前在 body 标签，自动切换到 headers 标签
-      if (requestView === 'body') {
-        requestView = 'headers';
-      }
-      // 清理 formData 中的文件引用
-      const hasFiles = currentTab.formData.some(item => item.file);
-      if (hasFiles) {
-        currentTab.formData.forEach(item => {
-          if (item.file) {
-            item.file = null;
-          }
-        });
-      }
-    }
-  });
+  // GET/HEAD/OPTIONS 不再强制清空 Body：Body Tab 仅禁用并提示，数据保留，requestView 保持不变
 
   // 监听 bodyType 变化，清理不相关的数据
   $effect(() => {
@@ -2036,6 +2275,7 @@
   // 点击外部关闭下拉菜单和计算位置
   let dropdownRef: HTMLElement | null = $state(null);
   let dropdownButtonRef: HTMLElement | null = $state(null);
+  let urlInputRef: HTMLInputElement | null = $state(null);
   
   if (browser) {
     $effect(() => {
@@ -2068,6 +2308,8 @@
     });
   }
 </script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
 
 <div class="w-full ml-0 mr-0 p-2 flex gap-4 h-[calc(100vh-2rem)]">
   <input type="file" accept=".json" bind:this={importFileInput} onchange={handleImportFile} class="hidden" />
@@ -2117,12 +2359,6 @@
             </button>
             <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
             <button
-              onclick={() => { showEnvDialog = true; showSidebarMenu = false; }}
-              class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-            >
-              <Key class="w-3.5 h-3.5" /> {t('apiClient.environments')}
-            </button>
-            <button
               onclick={() => { showHistory = true; showSidebarMenu = false; }}
               class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
             >
@@ -2145,8 +2381,20 @@
     </div>
     <div class="flex-1 overflow-y-auto py-1">
       {#each collections as col}
-        <div class="group/col">
-          <div class="flex items-center px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+        {@const colFiltered = filteredTabsInCollection(col.id)}
+        {#if !searchText.trim() || colFiltered.length > 0}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="group/col"
+          ondragover={(e) => e.preventDefault()}
+          ondrop={(e) => onDropOnCollection(e, col.id)}
+        >
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="flex items-center px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            ondragover={(e) => e.preventDefault()}
+            ondrop={(e) => onDropOnCollection(e, col.id)}
+          >
             <button
               onclick={() => toggleCollapse(col.id)}
               class="p-0.5 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0"
@@ -2162,6 +2410,7 @@
               <input
                 type="text"
                 value={editingCollectionName}
+                use:focusAndSelect
                 oninput={(e) => editingCollectionName = (e.target as HTMLInputElement).value}
                 onkeydown={(e) => { if (e.key === 'Enter') confirmRenameCollection(); if (e.key === 'Escape') editingCollectionId = null; }}
                 onblur={confirmRenameCollection}
@@ -2171,11 +2420,21 @@
             {:else}
               <button
                 onclick={() => toggleCollapse(col.id)}
+                ondblclick={() => startRenameCollection(col.id)}
                 class="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-300 ml-1.5 truncate"
+                title={t('apiClient.rename')}
               >
                 {col.name}
               </button>
             {/if}
+            <span class="ml-1 text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">{tabsInCollection(col.id).length}</span>
+            <button
+              onclick={() => addTab(col.id)}
+              class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/col:opacity-100 focus:opacity-100 transition-opacity flex-shrink-0"
+              title={t('apiClient.newRequest')}
+            >
+              <Plus class="w-3.5 h-3.5" />
+            </button>
             <button
               onclick={() => showCollectionMenu = showCollectionMenu === col.id ? null : col.id}
               class="p-0.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 opacity-0 group-hover/col:opacity-100 transition-opacity flex-shrink-0"
@@ -2201,6 +2460,12 @@
                 <Pencil class="w-3.5 h-3.5" /> {t('apiClient.rename')}
               </button>
               <button
+                onclick={() => { duplicateCollection(col.id); showCollectionMenu = null; }}
+                class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+              >
+                <CopyIcon class="w-3.5 h-3.5" /> {t('apiClient.duplicate')}
+              </button>
+              <button
                 onclick={() => { exportCollection(col.id); showCollectionMenu = null; }}
                 class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               >
@@ -2215,8 +2480,8 @@
               </button>
             </div>
           {/if}
-          {#if !col.collapsed}
-            {#each filteredTabsInCollection(col.id) as tab (tab.id)}
+          {#if !col.collapsed || searchText.trim()}
+            {#each colFiltered as tab (tab.id)}
               <div
                 class="group/req flex items-center pl-8 pr-2 py-1 cursor-pointer {activeTabId === tab.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-400'} transition-colors relative"
                 draggable="true"
@@ -2272,11 +2537,17 @@
                 {/if}
               </div>
             {/each}
-            {#if filteredTabsInCollection(col.id).length === 0}
-              <div class="pl-8 pr-2 py-1 text-xs text-gray-400 dark:text-gray-500 italic">{t('apiClient.emptyCollection')}</div>
+            {#if colFiltered.length === 0 && !searchText.trim()}
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div
+                class="pl-8 pr-2 py-1 text-xs text-gray-400 dark:text-gray-500 italic"
+                ondragover={(e) => e.preventDefault()}
+                ondrop={(e) => onDropOnCollection(e, col.id)}
+              >{t('apiClient.emptyCollection')}</div>
             {/if}
           {/if}
         </div>
+        {/if}
       {/each}
 
       <!-- Ungrouped requests -->
@@ -2357,7 +2628,7 @@
       <div class="flex gap-2 items-start overflow-visible">
         <select
           bind:value={activeTab.method}
-          class="input w-32"
+          class="input w-32 h-10"
         >
           <option value="GET">GET</option>
           <option value="POST">POST</option>
@@ -2369,9 +2640,11 @@
         </select>
         <input
           type="text"
+          bind:this={urlInputRef}
           bind:value={activeTab.url}
           placeholder={t('apiClient.urlPlaceholder')}
-          class="input flex-1"
+          class="input flex-1 font-mono text-sm h-10"
+          onkeydown={(e) => { if (e.key === 'Enter' && activeTab && !activeTab.isSending) sendRequest(activeTab); }}
         />
         <div class="flex items-center">
           <button
@@ -2387,6 +2660,16 @@
               {t('apiClient.send')}
             {/if}
           </button>
+          {#if activeTab.isSending}
+            <button
+              onclick={() => cancelRequest(activeTab)}
+              class="h-10 px-4 text-white transition-colors font-medium hover:opacity-90 flex items-center gap-2 rounded-lg bg-red-500 hover:bg-red-600"
+              title={t('apiClient.cancelRequest')}
+            >
+              <X class="w-4 h-4" />
+              {t('apiClient.cancelRequest')}
+            </button>
+          {/if}
           <div class="relative">
             <button
               bind:this={dropdownButtonRef}
@@ -2460,26 +2743,34 @@
         <!-- Tab Navigation -->
         <div class="flex items-center border-b border-gray-200 dark:border-gray-700 mb-4">
           <button
-            onclick={() => requestView = 'headers'}
-            class="px-4 py-2 border-b-2 transition-colors {requestView === 'headers'
+            onclick={() => { if (activeTab) activeTab.requestView = 'headers'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'headers'
               ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
           >
             <span class="text-sm font-medium">{t('apiClient.headers')}</span>
           </button>
-          {#if activeTab.method !== 'GET' && activeTab.method !== 'HEAD' && activeTab.method !== 'OPTIONS'}
-            <button
-              onclick={() => requestView = 'body'}
-              class="px-4 py-2 border-b-2 transition-colors {requestView === 'body'
-                ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
-            >
-              <span class="text-sm font-medium">{t('apiClient.body')}</span>
-            </button>
-          {/if}
           <button
-            onclick={() => requestView = 'auth'}
-            class="px-4 py-2 border-b-2 transition-colors {requestView === 'auth'
+            onclick={() => { if (activeTab) activeTab.requestView = 'params'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'params'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium">Params{#if queryParams.length > 0}<span class="ml-1 text-[11px] px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">{queryParams.length}</span>{/if}</span>
+          </button>
+          <button
+            onclick={() => { if (activeTab) activeTab.requestView = 'body'; }}
+            disabled={activeTab?.method === 'GET' || activeTab?.method === 'HEAD' || activeTab?.method === 'OPTIONS'}
+            title={t('apiClient.bodyNotAvailable')}
+            class="px-4 py-2 border-b-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed {activeTab?.requestView === 'body'
+              ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
+          >
+            <span class="text-sm font-medium">{t('apiClient.body')}</span>
+          </button>
+          <button
+            onclick={() => { if (activeTab) activeTab.requestView = 'auth'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'auth'
               ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
           >
@@ -2489,16 +2780,16 @@
             </span>
           </button>
           <button
-            onclick={() => requestView = 'settings'}
-            class="px-4 py-2 border-b-2 transition-colors {requestView === 'settings'
+            onclick={() => { if (activeTab) activeTab.requestView = 'settings'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'settings'
               ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
           >
             <span class="text-sm font-medium">{t('apiClient.settings')}</span>
           </button>
           <button
-            onclick={() => requestView = 'preRequest'}
-            class="px-4 py-2 border-b-2 transition-colors {requestView === 'preRequest'
+            onclick={() => { if (activeTab) activeTab.requestView = 'preRequest'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'preRequest'
               ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
           >
@@ -2508,17 +2799,17 @@
             </span>
           </button>
           <button
-            onclick={() => requestView = 'tests'}
-            class="px-4 py-2 border-b-2 transition-colors {requestView === 'tests'
+            onclick={() => { if (activeTab) activeTab.requestView = 'tests'; }}
+            class="px-4 py-2 border-b-2 transition-colors {activeTab?.requestView === 'tests'
               ? 'border-primary-600 dark:border-primary-400 text-primary-600 dark:text-primary-400'
               : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}"
           >
             <span class="text-sm font-medium flex items-center gap-1">
               <FileCode class="w-3.5 h-3.5" />
               {t('apiClient.tests')}
-              {#if testResults.length > 0}
-                <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full {testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
-                  {testResults.filter(r => r.passed).length}/{testResults.length}
+              {#if activeTab && activeTab.testResults.length > 0}
+                <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full {activeTab.testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
+                  {activeTab.testResults.filter(r => r.passed).length}/{activeTab.testResults.length}
                 </span>
               {/if}
             </span>
@@ -2526,7 +2817,7 @@
         </div>
 
         <!-- Tab Content -->
-        {#if requestView === 'headers'}
+        {#if activeTab?.requestView === 'headers'}
           <!-- Headers Content -->
           <div>
             <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
@@ -2579,13 +2870,12 @@
                         placeholder={t('apiClient.headerKey')}
                         class="w-full px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:ring-0 disabled:opacity-50 disabled:cursor-not-allowed"
                         disabled={!header.enabled}
-                        style="ime-mode: disabled; text-transform: lowercase;"
+                        style="ime-mode: disabled;"
                         inputmode="text"
                         autocomplete="off"
                         autocorrect="off"
                         autocapitalize="off"
                         spellcheck="false"
-                        oninput={(e) => header.key = (e.target as HTMLInputElement).value.toLowerCase()}
                       />
                     </div>
                     <!-- Value Column -->
@@ -2606,7 +2896,7 @@
                       <!-- Delete button (show on hover) -->
                       <button
                         onclick={() => removeHeader(activeTab, index)}
-                        class="opacity-0 group-hover:opacity-100 p-0.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                        class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 focus:opacity-100 p-0.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled={activeTab.headers.length === 1}
                         title="删除"
                       >
@@ -2618,9 +2908,69 @@
               </div>
             </div>
           </div>
-        {:else if requestView === 'body'}
+        {:else if activeTab?.requestView === 'params'}
+          <div>
+            <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{t('apiClient.queryParamsHint')}</p>
+              <button onclick={addQueryParam} class="btn-secondary text-sm">{t('apiClient.addParam')}</button>
+            </div>
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+              <div class="divide-y divide-gray-200 dark:divide-gray-700">
+                {#each queryParams as param, index}
+                  <div class="group relative flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div class="px-2 py-1 flex items-center opacity-60 group-hover:opacity-100 transition-opacity">
+                      <input
+                        type="checkbox"
+                        checked={param.enabled}
+                        onchange={(e) => updateQueryParam(index, 'enabled', (e.target as HTMLInputElement).checked)}
+                        class="w-3.5 h-3.5 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 cursor-pointer"
+                      />
+                    </div>
+                    <div class="flex-1 px-3 py-1 border-r border-gray-200 dark:border-gray-700 min-w-[160px]">
+                      <input
+                        type="text"
+                        value={param.key}
+                        oninput={(e) => updateQueryParam(index, 'key', (e.target as HTMLInputElement).value)}
+                        placeholder="key"
+                        class="w-full px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-0 disabled:opacity-50 font-mono"
+                        disabled={!param.enabled}
+                        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                      />
+                    </div>
+                    <div class="flex-1 px-3 py-1 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={param.value}
+                        oninput={(e) => updateQueryParam(index, 'value', (e.target as HTMLInputElement).value)}
+                        placeholder="value"
+                        class="flex-1 px-0 py-0 text-sm bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-0 disabled:opacity-50 font-mono"
+                        disabled={!param.enabled}
+                        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                      />
+                      <button
+                        onclick={() => removeQueryParam(index)}
+                        class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 p-0.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all"
+                        title={t('apiClient.delete')}
+                      >
+                        <Trash2 class="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                {/each}
+                {#if queryParams.length === 0}
+                  <div class="px-3 py-4 text-xs text-gray-400 dark:text-gray-500 text-center">{t('apiClient.noParams')}</div>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {:else if activeTab?.requestView === 'body'}
           <!-- Body Content -->
           <div>
+            {#if activeTab && (activeTab.method === 'GET' || activeTab.method === 'HEAD' || activeTab.method === 'OPTIONS')}
+              <div class="mb-3 p-3 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                {t('apiClient.bodyNotAvailable')}
+              </div>
+            {/if}
             <div class="flex gap-2 mb-4">
               <button
                 onclick={() => activeTab.bodyType = 'none'}
@@ -2662,7 +3012,7 @@
 
             {#if activeTab.bodyType === 'json'}
               <div class="flex items-center justify-between mb-2">
-                <span class="text-xs text-gray-500 dark:text-gray-400">JSON</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">JSON{#if jsonInlineError}<span class="ml-2 text-red-600 dark:text-red-400 font-mono">— {jsonInlineError}</span>{/if}</span>
                 <div class="flex gap-2">
                   <button onclick={formatJson} class="btn-secondary text-xs px-2 py-1" title="Format JSON">{t('apiClient.format')}</button>
                   <button onclick={minifyJson} class="btn-secondary text-xs px-2 py-1" title="Minify JSON">{t('apiClient.minify')}</button>
@@ -2828,7 +3178,7 @@
                           <!-- Delete button (show on hover) -->
                           <button
                             onclick={() => removeFormDataItem(activeTab, index)}
-                            class="opacity-0 group-hover:opacity-100 p-0.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            class="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 focus:opacity-100 p-0.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                             disabled={activeTab.formData.length === 1}
                             title="删除"
                           >
@@ -2896,39 +3246,39 @@
         </div>
       {/if}
 
-      {#if requestView === 'auth'}
+      {#if activeTab?.requestView === 'auth'}
         <div class="space-y-3">
           <div class="flex items-center gap-3">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">{t('apiClient.authType')}</label>
-            <select bind:value={authType} class="input flex-1">
+            <select bind:value={activeTab.authType} class="input flex-1">
               <option value="none">No Auth</option>
               <option value="bearer">Bearer Token</option>
               <option value="basic">Basic Auth</option>
             </select>
           </div>
-          {#if authType === 'bearer'}
+          {#if activeTab?.authType === 'bearer'}
             <div class="flex items-center gap-3">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Token</label>
-              <input type="text" bind:value={bearerToken} placeholder="Enter token..." class="input flex-1 font-mono text-sm" />
+              <input type="text" bind:value={activeTab.bearerToken} placeholder="Enter token..." class="input flex-1 font-mono text-sm" />
             </div>
           {/if}
-          {#if authType === 'basic'}
+          {#if activeTab?.authType === 'basic'}
             <div class="flex items-center gap-3">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Username</label>
-              <input type="text" bind:value={basicUsername} placeholder="Username" class="input flex-1 text-sm" />
+              <input type="text" bind:value={activeTab.basicUsername} placeholder="Username" class="input flex-1 text-sm" />
             </div>
             <div class="flex items-center gap-3">
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">Password</label>
-              <input type="password" bind:value={basicPassword} placeholder="Password" class="input flex-1 text-sm" />
+              <input type="password" bind:value={activeTab.basicPassword} placeholder="Password" class="input flex-1 text-sm" />
             </div>
           {/if}
-          {#if authType === 'none'}
+          {#if activeTab?.authType === 'none'}
             <p class="text-sm text-gray-400 dark:text-gray-500 py-4">{t('apiClient.authNoneDesc')}</p>
           {/if}
         </div>
       {/if}
 
-      {#if requestView === 'settings'}
+      {#if activeTab?.requestView === 'settings'}
         <div class="space-y-4">
           <div class="flex items-center gap-3">
             <label class="text-sm font-medium text-gray-700 dark:text-gray-300 w-40">{t('apiClient.timeout')}</label>
@@ -2942,19 +3292,15 @@
         </div>
       {/if}
 
-      {#if requestView === 'preRequest'}
+      {#if activeTab?.requestView === 'preRequest'}
         <div class="space-y-2">
           <details class="text-xs">
             <summary class="cursor-pointer text-gray-600 dark:text-gray-400 font-medium py-1">{t('apiClient.preRequestDesc')}</summary>
             <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg space-y-1 text-gray-600 dark:text-gray-400 font-mono">
               <div>// {t('apiClient.preRequestSyntaxTitle')}</div>
-              <div>pm.environment.<b>get</b>(key)          <span class="text-gray-400">// {t('apiClient.preRequestEnvGet')}</span></div>
-              <div>pm.environment.<b>set</b>(key, value)    <span class="text-gray-400">// {t('apiClient.preRequestEnvSet')}</span></div>
-              <div>pm.environment.<b>has</b>(key)           <span class="text-gray-400">// {t('apiClient.preRequestEnvHas')}</span></div>
               <div>pm.variables.<b>get</b>(key)             <span class="text-gray-400">// {t('apiClient.preRequestVarGet')}</span></div>
               <div>pm.variables.<b>set</b>(key, value)      <span class="text-gray-400">// {t('apiClient.preRequestVarSet')}</span></div>
               <div class="mt-1 text-gray-400">// {t('apiClient.preRequestExampleTitle')}</div>
-              <div>pm.environment.set('baseUrl', 'https://api.example.com')</div>
               <div>pm.variables.set('token', btoa('user:pass'))</div>
               <div>pm.variables.set('ts', Date.now().toString())</div>
             </div>
@@ -2962,23 +3308,23 @@
           <div class="json-editor-container bordered h-[300px]">
             <pre class="json-editor-overlay textarea font-mono text-sm" aria-hidden="true"><code class="hljs language-javascript">{@html highlightedPreRequest}</code></pre>
             <textarea
-              bind:value={preRequestScript}
-              placeholder="// pm.variables.set('timestamp', Date.now().toString())&#10;// pm.environment.set('token', btoa('user:pass'))"
+              bind:value={activeTab.preRequestScript}
+              placeholder="// pm.variables.set('timestamp', Date.now().toString())&#10;// pm.variables.set('token', btoa('user:pass'))"
               class="json-editor-textarea textarea font-mono text-sm h-full"
-              wrap="off"
+              wrap={"off" as any}
               spellcheck="false"
             ></textarea>
           </div>
         </div>
       {/if}
 
-      {#if requestView === 'tests'}
+      {#if activeTab?.requestView === 'tests'}
         <div class="space-y-3">
           <div class="flex items-center gap-2">
             <p class="text-xs text-gray-500 dark:text-gray-400 flex-1">{t('apiClient.testsDesc')}</p>
-            {#if testResults.length > 0}
-              <span class="text-xs px-2 py-0.5 rounded-full {testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
-                {testResults.filter(r => r.passed).length}/{testResults.length} {t('apiClient.passed')}
+            {#if activeTab && activeTab.testResults.length > 0}
+              <span class="text-xs px-2 py-0.5 rounded-full {activeTab.testResults.every(r => r.passed) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}">
+                {activeTab.testResults.filter(r => r.passed).length}/{activeTab.testResults.length} {t('apiClient.passed')}
               </span>
             {/if}
           </div>
@@ -3013,7 +3359,7 @@
           <div class="json-editor-container bordered h-[200px]">
             <pre class="json-editor-overlay textarea font-mono text-sm" aria-hidden="true"><code class="hljs language-javascript">{@html highlightedTestScript}</code></pre>
             <textarea
-              bind:value={testScript}
+              bind:value={activeTab.testScript}
               placeholder={`// pm.test("Status is 200", () => {
 //   pm.expect(pm.response.code).to.equal(200)
 // })
@@ -3021,13 +3367,13 @@
 //   pm.expect(pm.response.text()).to.include("success")
 // })`}
               class="json-editor-textarea textarea font-mono text-sm h-full"
-              wrap="off"
+              wrap={"off" as any}
               spellcheck="false"
             ></textarea>
           </div>
-          {#if testResults.length > 0}
+          {#if activeTab && activeTab.testResults.length > 0}
             <div class="space-y-1">
-              {#each testResults as result}
+              {#each activeTab.testResults as result}
                 <div class="flex items-center gap-2 px-3 py-1.5 rounded text-sm {result.passed ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}">
                   {#if result.passed}
                     <Check class="w-4 h-4 flex-shrink-0" />
@@ -3052,6 +3398,145 @@
       {/if}
     </div>
   </div>
+
+  <!-- 内联 Response Panel（常驻） -->
+  {#if activeTab && (activeTab.responseStatus !== null || activeTab.responseBody || activeTab.error || activeTab.responseTime !== null)}
+    <div class="card">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">{t('apiClient.inlineResponse')}</h3>
+          {#if activeTab.responseStatus !== null}
+            <span class="px-2 py-0.5 text-sm font-semibold rounded {getStatusColor(activeTab.responseStatus)}">
+              {activeTab.responseStatus}
+            </span>
+          {/if}
+          {#if activeTab.responseTime !== null}
+            <span class="text-xs text-gray-500 dark:text-gray-400">{activeTab.responseTime}ms</span>
+          {/if}
+          {#if activeTab.responseSize !== null}
+            <span class="text-xs text-gray-500 dark:text-gray-400">{formatSize(activeTab.responseSize)}</span>
+          {/if}
+          {#if activeTab.cancelled}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">{t('apiClient.cancelled')}</span>
+          {/if}
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 rounded p-0.5">
+            <button
+              onclick={() => responseViewMode = 'pretty'}
+              class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'pretty' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+            >Pretty</button>
+            <button
+              onclick={() => responseViewMode = 'raw'}
+              class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'raw' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+            >Raw</button>
+            <button
+              onclick={() => responseViewMode = 'preview'}
+              class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'preview' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+            >Preview</button>
+            <button
+              onclick={() => responseViewMode = 'headers'}
+              class="px-2 py-0.5 text-xs rounded transition-colors {responseViewMode === 'headers' ? 'bg-white dark:bg-gray-600 text-primary-600 dark:text-primary-400 font-medium shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}"
+            >Headers</button>
+          </div>
+          <button
+            onclick={() => copyResponse(activeTab)}
+            class="btn-secondary text-xs whitespace-nowrap transition-all duration-200 {activeTab.copied ? 'bg-green-500 hover:bg-green-600 text-white' : ''}"
+            title={t('common.copy')}
+          >
+            {#if activeTab.copied}
+              <span class="flex items-center gap-1">
+                <Check class="w-3.5 h-3.5" />
+                {t('common.copied')}
+              </span>
+            {:else}
+              <span class="flex items-center gap-1">
+                <Copy class="w-3.5 h-3.5" />
+                {t('common.copy')}
+              </span>
+            {/if}
+          </button>
+          <button
+            onclick={() => saveResponse(activeTab)}
+            disabled={!activeTab.responseBody}
+            class="btn-secondary text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            title={t('apiClient.saveResponse')}
+          >
+            <span class="flex items-center gap-1">
+              <Download class="w-3.5 h-3.5" />
+              {t('apiClient.saveResponse')}
+            </span>
+          </button>
+          <button
+            onclick={() => { responsePopped = true; showResponseDialog = true; }}
+            disabled={activeTab.responseStatus === null && !activeTab.responseBody && !activeTab.error}
+            class="btn-secondary text-xs whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            title={t('apiClient.popout')}
+          >
+            <span class="flex items-center gap-1">
+              <ExternalLink class="w-3.5 h-3.5" />
+              {t('apiClient.popout')}
+            </span>
+          </button>
+        </div>
+      </div>
+      {#if activeTab.error && !activeTab.responseBody && activeTab.responseStatus === null}
+        <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p class="text-sm text-red-800 dark:text-red-200">{activeTab.error}</p>
+        </div>
+      {:else if responseViewMode === 'headers'}
+        <div class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 max-h-[400px] overflow-y-auto {Object.keys(activeTab.responseHeaders).length === 0 ? 'flex items-center justify-center' : ''}">
+          {#if Object.keys(activeTab.responseHeaders).length > 0}
+            {#each Object.entries(activeTab.responseHeaders) as [key, value]}
+              <div class="text-sm font-mono py-1">
+                <span class="text-gray-600 dark:text-gray-400">{key}:</span>
+                <span class="ml-2 text-gray-900 dark:text-gray-100">{value}</span>
+              </div>
+            {/each}
+          {:else}
+            <span class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.noHeaders')}</span>
+          {/if}
+        </div>
+      {:else if responseViewMode === 'preview'}
+        <div class="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg h-[400px] overflow-y-auto">
+          {#if activeTab.responseHeaders['content-type']?.includes('image/') || activeTab.responseHeaders['Content-Type']?.includes('image/')}
+            <div class="flex items-center justify-center p-4 h-full">
+              <img src={activeTab.url} alt="Response preview" class="max-w-full max-h-full object-contain" />
+            </div>
+          {:else}
+            <iframe
+              title="Response Preview"
+              class="w-full h-full border-0"
+              srcdoc={activeTab.responseBody}
+              sandbox="allow-same-origin"
+            ></iframe>
+          {/if}
+        </div>
+      {:else if responseViewMode === 'raw'}
+        <textarea
+          value={activeTab.responseBody}
+          readonly
+          class="textarea font-mono text-sm h-[400px] resize-none overflow-y-auto"
+        ></textarea>
+      {:else if activeTab.responseBody}
+        <div class="json-editor-container bordered h-[400px]">
+          <pre class="json-editor-overlay textarea font-mono text-sm" bind:this={inlineResponseOverlayRef} aria-hidden="true"><code class="hljs language-json">{@html highlightedResponse}</code></pre>
+          <textarea
+            bind:this={inlineResponseTextareaRef}
+            value={activeTab.responseBody}
+            readonly
+            wrap={"off" as any}
+            class="json-editor-textarea textarea font-mono text-sm h-full"
+            onscroll={syncInlineResponseScroll}
+          ></textarea>
+        </div>
+      {:else}
+        <div class="bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 h-[200px] overflow-y-auto flex items-center justify-center">
+          <span class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.noResponseBody')}</span>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <!-- 响应对话框 -->
   {#if showResponseDialog && (activeTab.responseStatus !== null || activeTab.responseBody || activeTab.error)}
@@ -3084,7 +3569,7 @@
             {/if}
           </div>
           <button
-            onclick={() => { showResponseDialog = false; }}
+            onclick={() => { showResponseDialog = false; responsePopped = false; }}
             class="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded transition-colors"
             title="关闭"
           >
@@ -3317,99 +3802,6 @@
     </div>
   {/if}
 
-  <!-- Environment Variables Dialog -->
-  {#if showEnvDialog}
-    <div
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onclick={() => showEnvDialog = false}
-      onkeydown={(e) => { if (e.key === 'Escape') showEnvDialog = false; }}
-      role="dialog"
-      aria-modal="true"
-      tabindex="-1"
-    >
-      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col" onclick={(e) => e.stopPropagation()}>
-        <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('apiClient.environments')}</h3>
-          <div class="flex items-center gap-2">
-            <div class="relative">
-              <button
-                onclick={() => showEnvMenu = !showEnvMenu}
-                class="p-1 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Menu"
-              >
-                <MoreVertical class="w-5 h-5" />
-              </button>
-              {#if showEnvMenu}
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="fixed inset-0 z-10" onclick={() => showEnvMenu = false}></div>
-                <div class="absolute right-0 mt-1 w-44 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 py-1">
-                  <button
-                    onclick={() => { addEnvironment(); showEnvMenu = false; }}
-                    class="w-full text-left px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Plus class="w-3.5 h-3.5" /> {t('apiClient.newEnv')}
-                  </button>
-                </div>
-              {/if}
-            </div>
-            <button onclick={() => showEnvDialog = false} class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-              <X class="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-        </div>
-        <div class="flex gap-4 flex-1 overflow-hidden">
-          <div class="w-48 flex-shrink-0 flex flex-col">
-            <div class="flex-1 overflow-y-auto">
-              {#each environments as env}
-                <div class="flex items-center group/env px-2 py-1.5 rounded cursor-pointer {activeEnvId === env.id ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}" onclick={() => activeEnvId = env.id}>
-                  <span class="flex-1 text-sm truncate">{env.name}</span>
-                  <button onclick={(e) => { e.stopPropagation(); deleteEnvironment(env.id); }} class="p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover/env:opacity-100 transition-opacity">
-                    <Trash2 class="w-3 h-3" />
-                  </button>
-                </div>
-              {/each}
-              {#if environments.length === 0}
-                <p class="text-xs text-gray-400 dark:text-gray-500 px-2 py-4">{t('apiClient.noEnvs')}</p>
-              {/if}
-            </div>
-          </div>
-          <div class="flex-1 flex flex-col overflow-hidden">
-            {#if activeEnvironment}
-              <input type="text" bind:value={activeEnvironment.name} class="input text-sm font-medium mb-3" placeholder="Environment name" />
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{t('apiClient.variables')}</span>
-                <button onclick={() => addEnvVariable(activeEnvironment.id)} class="btn-secondary text-xs flex items-center gap-1">
-                  <Plus class="w-3 h-3" /> {t('apiClient.addVariable')}
-                </button>
-              </div>
-              <div class="flex-1 overflow-y-auto space-y-1">
-                {#each activeEnvironment.variables as v, i}
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" bind:checked={v.enabled} class="w-4 h-4" />
-                    <input type="text" bind:value={v.key} placeholder="key" class="input flex-1 text-sm font-mono" />
-                    <input type="text" bind:value={v.value} placeholder="value" class="input flex-1 text-sm font-mono" />
-                    <button onclick={() => removeEnvVariable(activeEnvironment.id, i)} class="p-1 text-gray-400 hover:text-red-500">
-                      <X class="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                {/each}
-                {#if activeEnvironment.variables.length === 0}
-                  <p class="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">{t('apiClient.noVariables')}</p>
-                {/if}
-              </div>
-              <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">{t('apiClient.envHint')}</p>
-            {:else}
-              <div class="flex-1 flex items-center justify-center">
-                <p class="text-sm text-gray-400 dark:text-gray-500">{t('apiClient.selectEnv')}</p>
-              </div>
-            {/if}
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
-
   <!-- History Dialog -->
   {#if showHistory}
     <div
@@ -3434,7 +3826,7 @@
         </div>
         <div class="flex-1 overflow-y-auto space-y-1">
           {#each history as entry}
-            <div class="flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <button onclick={() => restoreHistoryEntry(entry)} title={t('apiClient.restore')} class="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left">
               <span class="text-xs font-mono font-bold w-14 flex-shrink-0 truncate {entry.method === 'GET' ? 'text-green-600 dark:text-green-400' : entry.method === 'POST' ? 'text-blue-600 dark:text-blue-400' : entry.method === 'DELETE' ? 'text-red-600 dark:text-red-400' : 'text-gray-500'}">{entry.method}</span>
               <span class="text-sm truncate flex-1 text-gray-700 dark:text-gray-300">{entry.url}</span>
               {#if entry.status !== null}
@@ -3444,7 +3836,7 @@
                 <span class="text-xs text-gray-400">{entry.time}ms</span>
               {/if}
               <span class="text-xs text-gray-400">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-            </div>
+            </button>
           {/each}
           {#if history.length === 0}
             <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-8">{t('apiClient.noHistory')}</p>
