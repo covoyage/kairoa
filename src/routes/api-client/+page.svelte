@@ -173,9 +173,17 @@
   // 获取当前激活的标签页
   let activeTab = $derived(tabs.find(tab => tab.id === activeTabId) || tabs[0]);
 
-  // 切换标签页
+  // 切换标签页（同步选中其所在集合）
   function setActiveTab(tabId: string) {
     activeTabId = tabId;
+    const tab = tabs.find(t => t.id === tabId);
+    selectedCollectionId = tab?.collectionId ?? null;
+  }
+
+  // 选中集合（点集合头）：高亮 + 作为新建请求的目标
+  function selectCollection(colId: string) {
+    selectedCollectionId = colId;
+    toggleCollapse(colId);
   }
 
   // 更新标签页名称（基于 URL）
@@ -217,7 +225,7 @@
       ...defaultTabFields()
     };
     tabs = [...tabs, newTab];
-    activeTabId = newTab.id;
+    setActiveTab(newTab.id);
     if (collectionId) {
       const col = collections.find(c => c.id === collectionId);
       if (col) col.collapsed = false;
@@ -232,10 +240,14 @@
   // 删除标签页
   function removeTab(tabId: string) {
     if (tabs.length === 1) return;
-    tabs = tabs.filter(tab => tab.id !== tabId);
-    if (activeTabId === tabId) {
-      activeTabId = tabs[0].id;
-    }
+    const tab = tabs.find(t => t.id === tabId);
+    const msg = t('apiClient.deleteRequestConfirm').replace('{name}', tab?.name ?? '');
+    requestConfirm(msg, () => {
+      tabs = tabs.filter(tab => tab.id !== tabId);
+      if (activeTabId === tabId) {
+        setActiveTab(tabs[0].id);
+      }
+    });
   }
 
   // ── Collection management ──
@@ -270,15 +282,16 @@
     const msg = t('apiClient.deleteCollectionConfirm')
       .replace('{name}', col.name ?? '')
       .replace('{count}', String(count));
-    if (!confirm(msg)) return;
-    tabs.forEach(tab => {
-      if (tab.collectionId === colId) tab.collectionId = null;
+    requestConfirm(msg, () => {
+      tabs.forEach(tab => {
+        if (tab.collectionId === colId) tab.collectionId = null;
+      });
+      collections = collections.filter(c => c.id !== colId);
+      if (editingCollectionId === colId) {
+        editingCollectionId = null;
+        editingCollectionName = '';
+      }
     });
-    collections = collections.filter(c => c.id !== colId);
-    if (editingCollectionId === colId) {
-      editingCollectionId = null;
-      editingCollectionName = '';
-    }
   }
 
   function duplicateCollection(colId: string) {
@@ -352,6 +365,16 @@
 
   let showCollectionMenu = $state<string | null>(null);
   let showMoveMenu = $state<string | null>(null);
+
+  // 显式选中的集合（点集合头 / 点其中请求时同步）
+  let selectedCollectionId = $state<string | null>(null);
+
+  // 新建请求的目标集合：跟随选中集合
+  let newRequestTarget = $derived(
+    selectedCollectionId && collections.some(c => c.id === selectedCollectionId)
+      ? collections.find(c => c.id === selectedCollectionId) ?? null
+      : null
+  );
   let editingCollectionId = $state<string | null>(null);
   let editingCollectionName = $state('');
 
@@ -483,7 +506,7 @@
       order: tabs.length
     };
     tabs = [...tabs, newTab];
-    activeTabId = newTab.id;
+    setActiveTab(newTab.id);
   }
 
   // ── Drag & drop reordering ──
@@ -692,9 +715,31 @@
     showHistory = false;
   }
 
+  // ── In-app confirm dialog (replaces native confirm(), which is unreliable
+  // in some webviews: UI may update before the native dialog appears) ──
+  interface PendingConfirm {
+    message: string;
+    run: () => void;
+  }
+
+  let pendingConfirm = $state<PendingConfirm | null>(null);
+
+  function requestConfirm(message: string, run: () => void) {
+    pendingConfirm = { message, run };
+  }
+
+  function resolveConfirm(ok: boolean) {
+    const action = pendingConfirm;
+    pendingConfirm = null;
+    if (ok && action) action.run();
+  }
+
   function clearHistory() {
-    history = [];
-    saveHistory();
+    if (history.length === 0) return;
+    requestConfirm(t('apiClient.clearHistoryConfirm'), () => {
+      history = [];
+      saveHistory();
+    });
   }
 
   // ── Auth (per-tab, stored on TabData) ──
@@ -946,6 +991,8 @@
       if (savedActive) {
         activeTabId = savedActive;
       }
+      const restored = tabs.find(t => t.id === activeTabId);
+      selectedCollectionId = restored?.collectionId ?? null;
     } catch (error) {
       console.error('Failed to load saved API client tabs:', error);
     }
@@ -1562,31 +1609,35 @@
   }
 
   function clear(tab: TabData) {
-    const keepView = tab.requestView;
-    const defaults = defaultTabFields();
-    tab.url = '';
-    tab.headers = [{ key: '', value: '', enabled: true }];
-    tab.bodyType = 'none';
-    tab.bodyJson = '';
-    tab.bodyText = '';
-    tab.bodyXml = '';
-    tab.formData = [{ key: '', value: '', enabled: true, type: 'text', file: null }];
-    tab.responseStatus = null;
-    tab.responseHeaders = {};
-    tab.responseBody = '';
-    tab.responseTime = null;
-    tab.responseSize = null;
-    tab.cancelled = false;
-    tab.error = '';
-    tab.authType = defaults.authType;
-    tab.bearerToken = '';
-    tab.basicUsername = '';
-    tab.basicPassword = '';
-    tab.preRequestScript = '';
-    tab.testScript = '';
-    tab.testResults = [];
-    tab.requestView = keepView;
-    tab.name = 'New Request';
+    const tabId = tab.id;
+    requestConfirm(t('apiClient.clearRequestConfirm').replace('{name}', tab.name ?? ''), () => {
+      const target = tabs.find(t => t.id === tabId) ?? tab;
+      const keepView = target.requestView;
+      const defaults = defaultTabFields();
+      target.url = '';
+      target.headers = [{ key: '', value: '', enabled: true }];
+      target.bodyType = 'none';
+      target.bodyJson = '';
+      target.bodyText = '';
+      target.bodyXml = '';
+      target.formData = [{ key: '', value: '', enabled: true, type: 'text', file: null }];
+      target.responseStatus = null;
+      target.responseHeaders = {};
+      target.responseBody = '';
+      target.responseTime = null;
+      target.responseSize = null;
+      target.cancelled = false;
+      target.error = '';
+      target.authType = defaults.authType;
+      target.bearerToken = '';
+      target.basicUsername = '';
+      target.basicPassword = '';
+      target.preRequestScript = '';
+      target.testScript = '';
+      target.testResults = [];
+      target.requestView = keepView;
+      target.name = 'New Request';
+    });
   }
 
   // 解析 curl 命令
@@ -2391,12 +2442,12 @@
         >
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
-            class="flex items-center px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+            class="flex items-center px-2 py-1 transition-colors {selectedCollectionId === col.id ? 'bg-primary-50 dark:bg-primary-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}"
             ondragover={(e) => e.preventDefault()}
             ondrop={(e) => onDropOnCollection(e, col.id)}
           >
             <button
-              onclick={() => toggleCollapse(col.id)}
+              onclick={() => selectCollection(col.id)}
               class="p-0.5 text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex-shrink-0"
             >
               {#if col.collapsed}
@@ -2419,9 +2470,9 @@
               />
             {:else}
               <button
-                onclick={() => toggleCollapse(col.id)}
+                onclick={() => selectCollection(col.id)}
                 ondblclick={() => startRenameCollection(col.id)}
-                class="flex-1 text-left text-sm font-medium text-gray-700 dark:text-gray-300 ml-1.5 truncate"
+                class="flex-1 text-left text-sm font-medium ml-1.5 truncate {selectedCollectionId === col.id ? 'text-primary-700 dark:text-primary-300' : 'text-gray-700 dark:text-gray-300'}"
                 title={t('apiClient.rename')}
               >
                 {col.name}
@@ -2610,10 +2661,12 @@
     </div>
     <div class="border-t border-gray-200 dark:border-gray-700 p-2 flex-shrink-0">
       <button
-        onclick={() => addTab(null)}
+        onclick={() => addTab(newRequestTarget?.id ?? null)}
         class="w-full btn-secondary text-sm flex items-center justify-center gap-1.5"
+        title={newRequestTarget ? `${t('apiClient.newRequest')} → ${newRequestTarget.name}` : t('apiClient.newRequest')}
       >
-        <Plus class="w-4 h-4" /> {t('apiClient.newRequest')}
+        <Plus class="w-4 h-4" />
+        <span class="truncate">{t('apiClient.newRequest')}{#if newRequestTarget}<span class="opacity-60"> · {newRequestTarget.name}</span>{/if}</span>
       </button>
     </div>
   </div>
@@ -3797,6 +3850,34 @@
               {t('common.copy')}
             {/if}
                     </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Confirm Dialog (in-app, replaces native confirm) -->
+  {#if pendingConfirm}
+    <div
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100]"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+    >
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          {t('apiClient.confirmTitle')}
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">{pendingConfirm.message}</p>
+        <div class="flex gap-2 justify-end">
+          <button onclick={() => resolveConfirm(false)} class="btn-secondary">
+            {t('apiClient.cancel')}
+          </button>
+          <button
+            onclick={() => resolveConfirm(true)}
+            class="px-4 py-2 text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors font-medium"
+          >
+            {t('apiClient.delete')}
+          </button>
         </div>
       </div>
     </div>
