@@ -954,6 +954,12 @@
     if (!browser || hasLoadedFromStorage) return;
     hasLoadedFromStorage = true;
 
+    // 一次性清理已下线 env 机制的残留键
+    try {
+      localStorage.removeItem('apiClient.environments.v1');
+      localStorage.removeItem('apiClient.activeEnvId.v1');
+    } catch {}
+
     try {
       const savedTabs = localStorage.getItem(STORAGE_KEY);
       const savedActive = localStorage.getItem(STORAGE_ACTIVE_KEY);
